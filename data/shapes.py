@@ -360,7 +360,7 @@ def tree(start, nb_levels, regularity, role_start=0, plot=False):
 
 def plot_networkx(graph, role_labels):
         cmap = plt.get_cmap('hot')
-        x_range = np.linspace(0, 1, len(np.unique(role_labels)))
+        x_range = np.linspace(0, 0.8, len(np.unique(role_labels)))
         coloring = {u: cmap(x_range[i]) for i, u in enumerate(np.unique(role_labels))}
         node_color = [coloring[role_labels[i]] for i in range(len(role_labels))]
         plt.figure()

@@ -4,8 +4,8 @@ smaller subgraphs (of aparticular shape, defined in the shapes.py file)
 import math
 import networkx as nx
 import numpy as np
-from shapes import *
-from utils import *
+from data.shapes import *
+import data.utils as utils
 
 
 def build_structure(width_basis, basis_type, list_shapes, start=0,
@@ -159,7 +159,7 @@ def build_lego_structure(list_shapes, start=0, plot=False, savefig=False,
         graph.add_edges_from([(ii, jj)])
 
     if plot is True: plot_networkx(graph, role_labels)
-    if len(save2text) > 0: saveNet2txt(graph, colors=role_labels, name='net', path=save2text)
+    if len(save2text) > 0: utils.saveNet2txt(graph, colors=role_labels, name='net', path=save2text)
     return graph, communities, role_labels, shape_id
 
 
