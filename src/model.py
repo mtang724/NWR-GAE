@@ -85,7 +85,7 @@ def generate_gt_neighbor(neighbor_dict, node_embeddings, neighbor_num_list, in_d
 
 
 class GNNStructEncoder(nn.Module):
-    def __init__(self, in_dim, hidden_dim, out_dim, layer_num, max_degree_num, GNN_name="GIN"):
+    def __init__(self, in_dim, hidden_dim, out_dim, layer_num, max_degree_num, device, GNN_name="GIN"):
         super(GNNStructEncoder, self).__init__()
         self.n_distribution = out_dim # How many gaussian distribution should exist
         if GNN_name == "GIN":
@@ -95,9 +95,9 @@ class GNNStructEncoder(nn.Module):
             self.graphconv2 = GINConv(apply_func=self.linear2, aggregator_type='sum')
         self.linear_classifier = MLP(1, hidden_dim, hidden_dim, out_dim)
         # Gaussian Means, and std
-        self.gaussian_mean = nn.Parameter(torch.FloatTensor(self.n_distribution, hidden_dim).uniform_(-0.5 / hidden_dim, 0.5 / hidden_dim))
+        self.gaussian_mean = nn.Parameter(torch.FloatTensor(self.n_distribution, hidden_dim).uniform_(-0.5 / hidden_dim, 0.5 / hidden_dim)).to(device)
         self.gaussian_log_sigma = nn.Parameter(
-            torch.FloatTensor(self.n_distribution, hidden_dim).uniform_(-0.5 / hidden_dim, 0.5 / hidden_dim))
+            torch.FloatTensor(self.n_distribution, hidden_dim).uniform_(-0.5 / hidden_dim, 0.5 / hidden_dim)).to(device)
         self.m = torch.distributions.Normal(torch.zeros(self.n_distribution, hidden_dim), torch.ones(self.n_distribution, hidden_dim))
         # Decoders
         self.degree_decoder = FNN(hidden_dim, hidden_dim, max_degree_num, 4)
@@ -115,7 +115,7 @@ class GNNStructEncoder(nn.Module):
         #     g.ndata['h'] = h
         return l5, l4, l3
 
-    def neighbor_decoder(self, gij, ground_truth_degree_matrix, gt_neighbor_embeddings1, gt_neighbor_embeddings2, neighbor_num_list, temp, g, h, neighbor_dict):
+    def neighbor_decoder(self, gij, ground_truth_degree_matrix, gt_neighbor_embeddings1, gt_neighbor_embeddings2, neighbor_num_list, temp, g, h, neighbor_dict, device):
         degree_logits = self.degree_decoding(gij)
         degree_loss = self.degree_loss_func(degree_logits, ground_truth_degree_matrix)
         _, degree_masks = torch.max(degree_logits.data, dim=1)
@@ -129,7 +129,7 @@ class GNNStructEncoder(nn.Module):
                 zij = F.gumbel_softmax(self.linear_classifier(embedding), tau=temp)
                 generated_neighbors = []
                 for _ in range(max_neighbor_num):
-                    std_z = self.m.sample()
+                    std_z = self.m.sample().to(device)
                     var = self.gaussian_mean + self.gaussian_log_sigma.exp() * std_z
                     var = F.dropout(var, 0.2)
                     nhij = zij @ var
@@ -172,9 +172,9 @@ class GNNStructEncoder(nn.Module):
         degree_logits = self.degree_decoder(node_embeddings)
         return degree_logits
 
-    def forward(self, g, h, ground_truth_degree_matrix, neighbor_dict, neighbor_num_list, in_dim, temp):
+    def forward(self, g, h, ground_truth_degree_matrix, neighbor_dict, neighbor_num_list, in_dim, temp, device):
         gij, l4, l3 = self.forward_encoder(g, h)
         gt_neighbor_embeddings1 = generate_gt_neighbor(neighbor_dict, l4, neighbor_num_list, in_dim)
         gt_neighbor_embeddings2 = generate_gt_neighbor(neighbor_dict, l3, neighbor_num_list, in_dim)
-        loss, hij = self.neighbor_decoder(gij, ground_truth_degree_matrix, gt_neighbor_embeddings1, gt_neighbor_embeddings2, neighbor_num_list, temp, g, h, neighbor_dict)
+        loss, hij = self.neighbor_decoder(gij, ground_truth_degree_matrix, gt_neighbor_embeddings1, gt_neighbor_embeddings2, neighbor_num_list, temp, g, h, neighbor_dict, device)
         return loss, hij

@@ -22,7 +22,7 @@ from data import shapes
 def cluster_graph(role_id, node_embeddings):
     nb_clust = len(np.unique(role_id))
     pca = PCA(n_components=5)
-    trans_data = pca.fit_transform(StandardScaler().fit_transform(node_embeddings.detach()))
+    trans_data = pca.fit_transform(StandardScaler().fit_transform(node_embeddings.cpu().detach()))
     km = KMeans(n_clusters=nb_clust)
     km.fit(trans_data)
     labels_pred = km.labels_
@@ -47,7 +47,7 @@ def cluster_graph(role_id, node_embeddings):
 
 def draw_pca(role_id, node_embeddings):
     pca = PCA(n_components=2)
-    node_embedded = StandardScaler().fit_transform(node_embeddings.detach())
+    node_embedded = StandardScaler().fit_transform(node_embeddings.cpu().detach())
     principalComponents = pca.fit_transform(node_embedded)
     principalDf = pd.DataFrame(data=principalComponents,
                                columns=['principal component 1', 'principal component 2'])
@@ -108,9 +108,9 @@ if __name__ == '__main__':
     node_color = [coloring[role_id[i]] for i in range(len(role_id))]
     print(coloring)
     g = dgl.from_networkx(G)
-    g.to(device)
+    g = g.to(device)
     one_hot_feature = F.one_hot(g.in_degrees())
-    g.ndata['attr'] = one_hot_feature
+    g.ndata['attr'] = one_hot_feature.float()
     in_nodes, out_nodes = g.edges()
     neighbor_dict = {}
     for in_node, out_node in zip(in_nodes, out_nodes):
@@ -126,18 +126,19 @@ if __name__ == '__main__':
         neighbor_num_list.append(len(neighbor_dict[i]))
     in_dim = 6
     # Train in_dim, hidden_dim, out_dim, layer_num, max_degree_num
-    GNNModel = GNNStructEncoder(in_dim, in_dim, 7, 2, in_dim)
+    GNNModel = GNNStructEncoder(in_dim, in_dim, 7, 2, in_dim, device=device)
     GNNModel.to(device)
     opt = torch.optim.Adam(GNNModel.parameters(), lr=5e-4, weight_decay=0.00003)
     for i in range(500):
-        feats = g.ndata['attr'].float()
+        feats = g.ndata['attr']
+        feats = feats.to(device)
         # g, h, ground_truth_degree_matrix, neighbor_dict, neighbor_num_list, in_dim, temp
-        loss, node_embeddings = GNNModel(g, feats, g.in_degrees(), neighbor_dict, neighbor_num_list, in_dim, temp)
+        loss, node_embeddings = GNNModel(g, feats, g.in_degrees(), neighbor_dict, neighbor_num_list, in_dim, temp, device=device)
         if i % 100 == 1:
             temp = np.maximum(temp * np.exp(-ANNEAL_RATE * i), temp_min)
         if i == 0:
             ## Draw everything
-            node_embedded = TSNE(n_components=2).fit_transform(node_embeddings.detach().numpy())
+            node_embedded = TSNE(n_components=2).fit_transform(node_embeddings.cpu().detach().numpy())
             cluster.tsneplot(score=node_embedded, colorlist=role_id, figname="beforetrain_tsne")
             cluster_graph(role_id, node_embeddings)
             draw_pca(role_id, node_embeddings)
@@ -145,7 +146,7 @@ if __name__ == '__main__':
         loss.backward()
         print(loss.item())
         opt.step()
-    node_embedded = TSNE(n_components=2).fit_transform(node_embeddings.detach().numpy())
+    node_embedded = TSNE(n_components=2).fit_transform(node_embeddings.cpu().detach().numpy())
     cluster.tsneplot(score=node_embedded, colorlist=role_id, figname="aftertrain_tsne")
     cluster_graph(role_id, node_embeddings)
     draw_pca(role_id, node_embeddings)
