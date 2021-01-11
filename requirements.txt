@@ -1,0 +1,8 @@
+pytorch
+networkx
+matplotlib
+scipy
+seaborn
+dgl
+sklearn
+bioinfokit
