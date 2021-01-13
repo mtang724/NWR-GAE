@@ -100,24 +100,26 @@ class GNNStructEncoder(nn.Module):
             torch.FloatTensor(self.n_distribution, hidden_dim).uniform_(-0.5 / hidden_dim, 0.5 / hidden_dim)).to(device)
         self.m = torch.distributions.Normal(torch.zeros(self.n_distribution, hidden_dim), torch.ones(self.n_distribution, hidden_dim))
         # Decoders
-        self.degree_decoder = FNN(hidden_dim, hidden_dim, max_degree_num, 4)
-        self.degree_loss_func = FocalLoss(int(max_degree_num) + 1)
+        self.degree_decoder = FNN(hidden_dim, hidden_dim, 1, 4)
+        # self.degree_loss_func = FocalLoss(int(max_degree_num) + 1)
+        self.degree_loss_func = nn.MSELoss()
         self.pool = mp.Pool(4)
 
     def forward_encoder(self, g, h):
         # Apply graph convolution and activation
-        l1 = F.tanh(self.graphconv1(g, h))
-        l2 = F.tanh(self.graphconv2(g, l1))
-        l3 = F.tanh(self.graphconv2(g, l2))
-        l4 = F.tanh(self.graphconv2(g, l3))
+        l1 = torch.relu(self.graphconv1(g, h))
+        l2 = torch.relu(self.graphconv2(g, l1))
+        l3 = torch.relu(self.graphconv2(g, l2))
+        l4 = torch.relu(self.graphconv2(g, l3))
         l5 = self.graphconv2(g, l4) # 5 layers
         # with g.local_scope():
         #     g.ndata['h'] = h
         return l5, l4, l3
 
-    def neighbor_decoder(self, gij, ground_truth_degree_matrix, gt_neighbor_embeddings1, gt_neighbor_embeddings2, neighbor_num_list, temp, g, h, neighbor_dict, device):
+    def neighbor_decoder(self, gij, ground_truth_degree_matrix, gt_neighbor_embeddings1, gt_neighbor_embeddings2, neighbor_num_list, temp, g, h, neighbor_dict, device, test):
         degree_logits = self.degree_decoding(gij)
-        degree_loss = self.degree_loss_func(degree_logits, ground_truth_degree_matrix)
+        ground_truth_degree_matrix = torch.unsqueeze(ground_truth_degree_matrix, dim=1)
+        degree_loss = self.degree_loss_func(degree_logits, ground_truth_degree_matrix.float())
         _, degree_masks = torch.max(degree_logits.data, dim=1)
         h_loss = 0
         max_neighbor_num = max(neighbor_num_list)
@@ -136,11 +138,14 @@ class GNNStructEncoder(nn.Module):
                     generated_neighbors.append(nhij.tolist())
                 generated_neighbors = torch.unsqueeze(torch.FloatTensor(generated_neighbors), dim=0)
                 target_neighbors = torch.unsqueeze(torch.FloatTensor(gt_neighbor_embeddings1[i1]), dim=0)
-                new_loss, new_index = hungarian_loss(generated_neighbors, target_neighbors, neighbor_num_list[i1], self.pool)
-                local_index_loss += new_loss
-            loss_list.append(local_index_loss)
-        loss_list = torch.stack(loss_list)
-        h_loss += torch.mean(loss_list)
+                if not test:
+                    new_loss, new_index = hungarian_loss(generated_neighbors, target_neighbors, neighbor_num_list[i1], self.pool)
+                    local_index_loss += new_loss
+            if not test:
+                loss_list.append(local_index_loss)
+        if not test:
+            loss_list = torch.stack(loss_list)
+            h_loss += torch.mean(loss_list)
             # layer 2
             # generated_neighbors = torch.squeeze(torch.FloatTensor(generated_neighbors), dim=0)
             # neighbor_indexes = neighbor_dict[i1]
@@ -172,9 +177,9 @@ class GNNStructEncoder(nn.Module):
         degree_logits = self.degree_decoder(node_embeddings)
         return degree_logits
 
-    def forward(self, g, h, ground_truth_degree_matrix, neighbor_dict, neighbor_num_list, in_dim, temp, device):
+    def forward(self, g, h, ground_truth_degree_matrix, neighbor_dict, neighbor_num_list, in_dim, temp, test, device):
         gij, l4, l3 = self.forward_encoder(g, h)
         gt_neighbor_embeddings1 = generate_gt_neighbor(neighbor_dict, l4, neighbor_num_list, in_dim)
         gt_neighbor_embeddings2 = generate_gt_neighbor(neighbor_dict, l3, neighbor_num_list, in_dim)
-        loss, hij = self.neighbor_decoder(gij, ground_truth_degree_matrix, gt_neighbor_embeddings1, gt_neighbor_embeddings2, neighbor_num_list, temp, g, h, neighbor_dict, device)
+        loss, hij = self.neighbor_decoder(gij, ground_truth_degree_matrix, gt_neighbor_embeddings1, gt_neighbor_embeddings2, neighbor_num_list, temp, g, h, neighbor_dict, device, test)
         return loss, hij
