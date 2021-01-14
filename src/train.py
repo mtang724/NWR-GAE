@@ -3,12 +3,9 @@ sys.path.append("..")
 from data import build_graph
 import seaborn as sb
 import dgl
-import networkx as nx
 import torch
 import torch.nn.functional as F
 from src.model import GNNStructEncoder
-import torch.nn as nn
-from sklearn.manifold import TSNE
 from bioinfokit.visuz import cluster
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
@@ -17,8 +14,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from sklearn.cluster import KMeans
 import sklearn as sk
-from data import shapes
-
+from sklearn.manifold import TSNE
 
 def cluster_graph(role_id, node_embeddings):
     colors = role_id
@@ -45,7 +41,7 @@ def cluster_graph(role_id, node_embeddings):
     labels = role_id
     for label, c, x, y in zip(labels, labels_pred, trans_data[:, 0], trans_data[:, 1]):
         plt.annotate(label, xy=(x, y), xytext=(0, 0), textcoords='offset points')
-    plt.show()
+    # plt.show()
     return labels_pred, colors, trans_data, nb_clust
 
 
@@ -82,71 +78,67 @@ def draw_pca(role_id, node_embeddings):
                    c=color)
     ax.legend(targets)
     ax.grid()
-    plt.show()
+    # plt.show()
 
-if __name__ == '__main__':
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-    # 1- Start by defining our favorite regular structure
-
-    width_basis = 15
-    nbTrials = 20
-
+def graph_generator(width_basis=15, basis_type = "cycle", n_shapes = 5, shape_list=[[["house"]]], identifier = 'AA', add_edges = 0):
     ################################### EXAMPLE TO BUILD A SIMPLE REGULAR STRUCTURE ##########
     ## REGULAR STRUCTURE: the most simple structure:  basis + n small patterns of a single type
-
     ### 1. Choose the basis (cycle, torus or chain)
-    basis_type = "cycle"
-
     ### 2. Add the shapes
-    n_shapes = 5  ## numbers of shapes to add
-    # shape=["fan",6] ## shapes and their associated required parameters  (nb of edges for the star, etc)
-    # shape=["star",6]
-    list_shapes = [["house"]] * n_shapes
+    list_shapes = []
+    for shape in shape_list:
+        list_shapes += shape * n_shapes
+    print(list_shapes)
 
     ### 3. Give a name to the graph
-    identifier = 'AA'  ## just a name to distinguish between different trials
     name_graph = 'houses' + identifier
     sb.set_style('white')
 
     ### 4. Pass all these parameters to the Graph Structure
-    add_edges = 4
     G, communities, plugins, role_id = build_graph.build_structure(width_basis, basis_type, list_shapes, start=0,
-                                                       rdm_basis_plugins=False, add_random_edges=add_edges,
-                                                       plot=True, savefig=False)
+                                                                   add_random_edges=add_edges,
+                                                                   plot=False, savefig=False)
+    return G, role_id
 
-    #house_graphs = []
-    #house_role_ids = []
-    #for _ in range(25):
-    #    G, communities, plugins, role_id = build_graph.build_structure(width_basis, basis_type, list_shapes, start=0,
-    #                                                                   rdm_basis_plugins=False, add_random_edges=0,
-    #                                                                   plot=False, savefig=False)
-    #    house_graphs.append(G)
-    #    house_role_ids.append(role_id)
 
-    # G, role_id = shapes.barbel_graph(0, 8, 5, plot=True)
+def Average(lst):
+    return sum(lst) / len(lst)
 
-    from sklearn.manifold import TSNE
+if __name__ == '__main__':
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    # house
+    # G, role_id = graph_generator(width_basis=30, n_shapes = 5)
+    # house perturbed
+    #G, role_id = graph_generator(add_edges=4)
+    # Varied
+    G, role_id = graph_generator(width_basis=40, n_shapes = 8,
+                                 shape_list=[[["fan", 6]], [["star", 10]], [["house"]]])
+    # Varied Perturbed
+    #G, role_id = graph_generator(width_basis=25,
+    #                             shape_list=[[["fan", 6]], [["star", 10]], [["house"]]], add_edges=10)
 
     ################################### EXAMPLE TO BUILD A MORE COMPLICATED STRUCTURE ##########
     ######### Alternatively, to define a structure with different types of patterns, pass them as a list
     ######### In the following example, we have 3 fans (with param. 6), 3 stars on 4 nodes, and 3 house shapes
-    name_graph = 'regular'
-    from sklearn import preprocessing
-
-    width_basis = 25
-    add_edges = 10
-    list_shapes = [["fan", 6]] * 5 + [["star", 10]] * 5 + [["house"]] * 5
-    G, colors_shape, plugins, role_id = build_graph.build_structure(width_basis, basis_type, list_shapes, start=0,
-                                                       add_random_edges=add_edges, plot=True, savefig=False)
-    house_graphs = []
-    house_role_ids = []
-    for _ in range(25):
-       G, communities, plugins, role_id = build_graph.build_structure(width_basis, basis_type, list_shapes, start=0,
-                                                                      rdm_basis_plugins=False, add_random_edges=add_edges,
-                                                                      plot=False, savefig=False)
-       house_graphs.append(G)
-       house_role_ids.append(role_id)
+    # name_graph = 'regular'
+    # from sklearn import preprocessing
+    # basis_type = "cycle"
+    #
+    # width_basis = 25
+    # add_edges = 10
+    # list_shapes = [["fan", 6]] * 5 + [["star", 10]] * 5 + [["house"]] * 5
+    # G, colors_shape, plugins, role_id = build_graph.build_structure(width_basis, basis_type, list_shapes, start=0,
+    #                                                    add_random_edges=add_edges, plot=True, savefig=False)
+    # print (list_shapes)
+    # house_graphs = []
+    # house_role_ids = []
+    # for _ in range(25):
+    #    G, communities, plugins, role_id = build_graph.build_structure(width_basis, basis_type, list_shapes, start=0,
+    #                                                                   rdm_basis_plugins=False, add_random_edges=add_edges,
+    #                                                                   plot=False, savefig=False)
+    #    house_graphs.append(G)
+    #    house_role_ids.append(role_id)
 
     # set color
     cmap = plt.get_cmap('hot')
@@ -164,7 +156,7 @@ if __name__ == '__main__':
         if in_node.item() not in neighbor_dict:
             neighbor_dict[in_node.item()] = []
         neighbor_dict[in_node.item()].append(out_node.item())
-    epoches = 10
+
     temp_min = 0.3
     ANNEAL_RATE = 0.00001
     temp = 1
@@ -173,62 +165,43 @@ if __name__ == '__main__':
         neighbor_num_list.append(len(neighbor_dict[i]))
     in_dim = max(neighbor_num_list) + 1
     # Train in_dim, hidden_dim, out_dim, layer_num, max_degree_num
-    GNNModel = GNNStructEncoder(in_dim, in_dim, 7, 2, in_dim, device=device)
-    GNNModel.to(device)
-    opt = torch.optim.Adam(GNNModel.parameters(), lr=5e-3, weight_decay=0.00003)
-    for i in range(1):
-        feats = g.ndata['attr']
-        print (feats.shape)
-        feats = feats.to(device)
-        # g, h, ground_truth_degree_matrix, neighbor_dict, neighbor_num_list, in_dim, temp
-        loss, node_embeddings = GNNModel(g, feats, g.in_degrees(), neighbor_dict, neighbor_num_list, in_dim, temp, test = False, device=device)
-        if i % 100 == 1:
-            temp = np.maximum(temp * np.exp(-ANNEAL_RATE * i), temp_min)
-        if i == 0:
-            ## Draw everything
-            node_embedded = TSNE(n_components=2).fit_transform(node_embeddings.cpu().detach().numpy())
-            cluster.tsneplot(score=node_embedded, colorlist=role_id, figname="beforetrain_tsne")
-            labels_pred, colors, trans_data, nb_clust = cluster_graph(role_id, node_embeddings)
-            results = unsupervised_evaluate(colors, labels_pred, nb_clust)
-            print(results)
-            draw_pca(role_id, node_embeddings)
-        opt.zero_grad()
-        loss.backward()
-        print(loss.item())
-        opt.step()
-    node_embedded = TSNE(n_components=2).fit_transform(node_embeddings.cpu().detach().numpy())
-    cluster.tsneplot(score=node_embedded, colorlist=role_id, figname="aftertrain_tsne")
-    labels_pred, colors, trans_data, nb_clust = cluster_graph(role_id, node_embeddings)
-    print('Homogeneity \t Completeness \t AMI \t nb clusters \t CH \t  Silhouette \n')
-    results = unsupervised_evaluate(colors, labels_pred, nb_clust)
-    print (results)
-    draw_pca(role_id, node_embeddings)
-
-
-    # Test sets
-    GNNModel.eval()
-    with torch.no_grad():
-        for G, role_id in zip(house_graphs, house_role_ids):
-            g = dgl.from_networkx(G)
-            g = g.to(device)
-            one_hot_feature = F.one_hot(g.in_degrees())
-            g.ndata['attr'] = one_hot_feature.float()
-            in_nodes, out_nodes = g.edges()
-            neighbor_dict = {}
-            for in_node, out_node in zip(in_nodes, out_nodes):
-                if in_node.item() not in neighbor_dict:
-                    neighbor_dict[in_node.item()] = []
-                neighbor_dict[in_node.item()].append(out_node.item())
-            neighbor_num_list = []
-            for i in neighbor_dict:
-                neighbor_num_list.append(len(neighbor_dict[i]))
-            in_dim = max(neighbor_num_list) + 1
-            temp = 0
+    homs = []
+    comps = []
+    amis = []
+    chs = []
+    sils = []
+    for test_iter in range(25):
+        GNNModel = GNNStructEncoder(in_dim, in_dim, 7, 2, in_dim, device=device)
+        GNNModel.to(device)
+        opt = torch.optim.Adam(GNNModel.parameters(), lr=5e-3, weight_decay=0.00003)
+        for i in range(50):
             feats = g.ndata['attr']
             feats = feats.to(device)
-            test = True
-            _, node_embeddings = GNNModel(g, feats, g.in_degrees(), neighbor_dict, neighbor_num_list, in_dim, temp, test, device=device)
-            labels_pred, colors, trans_data, nb_clust = cluster_graph(role_id, node_embeddings)
-            print('Homogeneity \t Completeness \t AMI \t nb clusters \t CH \t  Silhouette \n')
-            results = unsupervised_evaluate(colors, labels_pred, nb_clust)
-            print(results)
+            # g, h, ground_truth_degree_matrix, neighbor_dict, neighbor_num_list, in_dim, temp
+            loss, node_embeddings = GNNModel(g, feats, g.in_degrees(), neighbor_dict, neighbor_num_list, in_dim, temp, test = False, device=device)
+            if i % 100 == 1:
+                temp = np.maximum(temp * np.exp(-ANNEAL_RATE * i), temp_min)
+            if i == 0:
+                ## Draw everything
+                node_embedded = TSNE(n_components=2).fit_transform(node_embeddings.cpu().detach().numpy())
+                cluster.tsneplot(score=node_embedded, colorlist=role_id, figname="beforetrain_tsne")
+                labels_pred, colors, trans_data, nb_clust = cluster_graph(role_id, node_embeddings)
+                results = unsupervised_evaluate(colors, labels_pred, nb_clust)
+                draw_pca(role_id, node_embeddings)
+            opt.zero_grad()
+            loss.backward()
+            print(i, loss.item())
+            opt.step()
+        node_embedded = TSNE(n_components=2).fit_transform(node_embeddings.cpu().detach().numpy())
+        cluster.tsneplot(score=node_embedded, colorlist=role_id, figname="aftertrain_tsne")
+        labels_pred, colors, trans_data, nb_clust = cluster_graph(role_id, node_embeddings)
+        hom, comp, ami, nb_clust, ch, sil = unsupervised_evaluate(colors, labels_pred, nb_clust)
+        homs.append(hom)
+        comps.append(comp)
+        amis.append(ami)
+        chs.append(ch)
+        sils.append(sil)
+        print("test iter:", str(test_iter))
+    print('Homogeneity \t Completeness \t AMI \t nb clusters \t CH \t  Silhouette \n')
+    print(str(Average(homs)), str(Average(comps)), str(Average(amis)), str(nb_clust), str(Average(chs)), str(Average(sils)))
+    draw_pca(role_id, node_embeddings)5
