@@ -15,6 +15,8 @@ import numpy as np
 from sklearn.cluster import KMeans
 import sklearn as sk
 from sklearn.manifold import TSNE
+from tqdm import tqdm
+
 
 def cluster_graph(role_id, node_embeddings):
     colors = role_id
@@ -174,7 +176,7 @@ if __name__ == '__main__':
         GNNModel = GNNStructEncoder(in_dim, in_dim, 7, 2, in_dim, device=device)
         GNNModel.to(device)
         opt = torch.optim.Adam(GNNModel.parameters(), lr=5e-3, weight_decay=0.00003)
-        for i in range(50):
+        for i in tqdm(range(20)):
             feats = g.ndata['attr']
             feats = feats.to(device)
             # g, h, ground_truth_degree_matrix, neighbor_dict, neighbor_num_list, in_dim, temp
@@ -204,4 +206,4 @@ if __name__ == '__main__':
         print("test iter:", str(test_iter))
     print('Homogeneity \t Completeness \t AMI \t nb clusters \t CH \t  Silhouette \n')
     print(str(Average(homs)), str(Average(comps)), str(Average(amis)), str(nb_clust), str(Average(chs)), str(Average(sils)))
-    draw_pca(role_id, node_embeddings)5
+    draw_pca(role_id, node_embeddings)
