@@ -80,7 +80,7 @@ def draw_pca(role_id, node_embeddings):
                    c=color)
     ax.legend(targets)
     ax.grid()
-    # plt.show()
+    #plt.show()
 
 
 def graph_generator(width_basis=15, basis_type = "cycle", n_shapes = 5, shape_list=[[["house"]]], identifier = 'AA', add_edges = 0):
@@ -100,7 +100,7 @@ def graph_generator(width_basis=15, basis_type = "cycle", n_shapes = 5, shape_li
     ### 4. Pass all these parameters to the Graph Structure
     G, communities, plugins, role_id = build_graph.build_structure(width_basis, basis_type, list_shapes, start=0,
                                                                    add_random_edges=add_edges,
-                                                                   plot=False, savefig=False)
+                                                                   plot=True, savefig=False)
     return G, role_id
 
 
@@ -110,12 +110,12 @@ def Average(lst):
 if __name__ == '__main__':
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     # house
-    # G, role_id = graph_generator(width_basis=30, n_shapes = 5)
+    # G, role_id = graph_generator(width_basis=30, n_shapes = 10)
     # house perturbed
-    #G, role_id = graph_generator(add_edges=4)
+    G, role_id = graph_generator(width_basis=30, n_shapes=10, add_edges=8)
     # Varied
-    G, role_id = graph_generator(width_basis=40, n_shapes = 8,
-                                 shape_list=[[["fan", 6]], [["star", 10]], [["house"]]])
+    # G, role_id = graph_generator(width_basis=40, n_shapes = 8,
+    #                             shape_list=[[["fan", 6]], [["star", 10]], [["house"]]])
     # Varied Perturbed
     #G, role_id = graph_generator(width_basis=25,
     #                             shape_list=[[["fan", 6]], [["star", 10]], [["house"]]], add_edges=10)
@@ -152,6 +152,7 @@ if __name__ == '__main__':
     g = g.to(device)
     one_hot_feature = F.one_hot(g.in_degrees())
     g.ndata['attr'] = one_hot_feature.float()
+    print(g.ndata['attr'].shape)
     in_nodes, out_nodes = g.edges()
     neighbor_dict = {}
     for in_node, out_node in zip(in_nodes, out_nodes):
@@ -172,11 +173,11 @@ if __name__ == '__main__':
     amis = []
     chs = []
     sils = []
-    for test_iter in range(25):
+    for test_iter in range(1):
         GNNModel = GNNStructEncoder(in_dim, in_dim, 7, 2, in_dim, device=device)
         GNNModel.to(device)
         opt = torch.optim.Adam(GNNModel.parameters(), lr=5e-3, weight_decay=0.00003)
-        for i in tqdm(range(20)):
+        for i in tqdm(range(100)):
             feats = g.ndata['attr']
             feats = feats.to(device)
             # g, h, ground_truth_degree_matrix, neighbor_dict, neighbor_num_list, in_dim, temp
@@ -189,6 +190,7 @@ if __name__ == '__main__':
                 cluster.tsneplot(score=node_embedded, colorlist=role_id, figname="beforetrain_tsne")
                 labels_pred, colors, trans_data, nb_clust = cluster_graph(role_id, node_embeddings)
                 results = unsupervised_evaluate(colors, labels_pred, nb_clust)
+                print(results)
                 draw_pca(role_id, node_embeddings)
             opt.zero_grad()
             loss.backward()
@@ -204,6 +206,7 @@ if __name__ == '__main__':
         chs.append(ch)
         sils.append(sil)
         print("test iter:", str(test_iter))
+    print(homs)
     print('Homogeneity \t Completeness \t AMI \t nb clusters \t CH \t  Silhouette \n')
     print(str(Average(homs)), str(Average(comps)), str(Average(amis)), str(nb_clust), str(Average(chs)), str(Average(sils)))
     draw_pca(role_id, node_embeddings)
