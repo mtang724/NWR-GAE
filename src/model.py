@@ -138,34 +138,31 @@ class GNNStructEncoder(nn.Module):
                     generated_neighbors.append(nhij.tolist())
                 generated_neighbors = torch.unsqueeze(torch.FloatTensor(generated_neighbors), dim=0)
                 target_neighbors = torch.unsqueeze(torch.FloatTensor(gt_neighbor_embeddings1[i1]), dim=0)
-                if not test:
-                    new_loss, new_index = hungarian_loss(generated_neighbors, target_neighbors, neighbor_num_list[i1], self.pool)
-                    local_index_loss += new_loss
-            if not test:
-                loss_list.append(local_index_loss)
-        if not test:
-            loss_list = torch.stack(loss_list)
-            h_loss += torch.mean(loss_list)
+                new_loss, new_index = hungarian_loss(generated_neighbors, target_neighbors, neighbor_num_list[i1], self.pool)
+                local_index_loss += new_loss
             # layer 2
-            # generated_neighbors = torch.squeeze(torch.FloatTensor(generated_neighbors), dim=0)
-            # neighbor_indexes = neighbor_dict[i1]
-            # new_neighbor_indexes = []
-            # for index in new_index:
-            #     new_neighbor_indexes.append(neighbor_indexes[index])
-            # for i2, embedding in zip(new_neighbor_indexes, generated_neighbors):
-            #     zij = F.gumbel_softmax(self.linear_classifier(embedding), tau=temp)
-            #     generated_neighbors = []
-            #     for _ in range(max_neighbor_num):
-            #         std_z = self.m.sample()
-            #         var = self.gaussian_mean + self.gaussian_log_sigma.exp() * std_z
-            #         var = F.dropout(var, 0.2)
-            #         nhij = zij @ var
-            #         generated_neighbors.append(nhij.tolist())
-            #     generated_neighbors = torch.unsqueeze(torch.FloatTensor(generated_neighbors), dim=0)
-            #     target_neighbors = torch.unsqueeze(torch.FloatTensor(gt_neighbor_embeddings2[i2]), dim=0)
-            #     new_loss, new_index = hungarian_loss(generated_neighbors, target_neighbors, neighbor_num_list[i2],
-            #                                          self.pool)
-            #     h_loss += new_loss
+            generated_neighbors = torch.squeeze(torch.FloatTensor(generated_neighbors), dim=0)
+            neighbor_indexes = neighbor_dict[i1]
+            new_neighbor_indexes = []
+            for index in new_index:
+                new_neighbor_indexes.append(neighbor_indexes[index])
+            for i2, embedding in zip(new_neighbor_indexes, generated_neighbors):
+                zij = F.gumbel_softmax(self.linear_classifier(embedding), tau=temp)
+                generated_neighbors = []
+                for _ in range(max_neighbor_num):
+                    std_z = self.m.sample()
+                    var = self.gaussian_mean + self.gaussian_log_sigma.exp() * std_z
+                    var = F.dropout(var, 0.2)
+                    nhij = zij @ var
+                    generated_neighbors.append(nhij.tolist())
+                generated_neighbors = torch.unsqueeze(torch.FloatTensor(generated_neighbors), dim=0)
+                target_neighbors = torch.unsqueeze(torch.FloatTensor(gt_neighbor_embeddings2[i2]), dim=0)
+                new_loss, new_index = hungarian_loss(generated_neighbors, target_neighbors, neighbor_num_list[i2],
+                                                     self.pool)
+                local_index_loss += new_loss
+            loss_list.append(local_index_loss)
+        loss_list = torch.stack(loss_list)
+        h_loss += torch.mean(loss_list)
         loss = h_loss + degree_loss
         # print("degree loss")
         # print(degree_loss)
@@ -178,6 +175,8 @@ class GNNStructEncoder(nn.Module):
         return degree_logits
 
     def forward(self, g, h, ground_truth_degree_matrix, neighbor_dict, neighbor_num_list, in_dim, temp, test, device):
+        print(g.num_nodes())
+        print(h.shape)
         gij, l4, l3 = self.forward_encoder(g, h)
         gt_neighbor_embeddings1 = generate_gt_neighbor(neighbor_dict, l4, neighbor_num_list, in_dim)
         gt_neighbor_embeddings2 = generate_gt_neighbor(neighbor_dict, l3, neighbor_num_list, in_dim)

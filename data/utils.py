@@ -8,6 +8,8 @@ import pickle
 import gzip
 import re
 import networkx as nx
+import dgl
+import torch
 
 
 def save_obj(obj, name, path, compress=False):
@@ -73,3 +75,25 @@ def saveNet2txt(G, colors=[], name="net", path="plots/"):
     print ("saved network  edges and nodes to txt file (for Gephi vis)")
     return
 
+
+def read_real_datasets(datasets):
+    edge_path = "../datasets/{}/out1_graph_edges.txt".format(datasets)
+    node_feature_path = "../datasets/{}/out1_node_feature_label.txt".format(datasets)
+    with open(edge_path) as edge_file:
+        edge_file_lines = edge_file.readlines()
+        G = nx.parse_edgelist(edge_file_lines[1:], nodetype=int)
+        g = dgl.from_networkx(G)
+    with open(node_feature_path) as node_feature_file:
+        node_lines = node_feature_file.readlines()[1:]
+        feature_list = []
+        labels = []
+        for node_line in node_lines:
+            node_id, feature, label = node_line.split("\t")
+            labels.append(int(label))
+            features = feature.split(",")
+            feature_list.append([float(feature) for feature in features])
+        feature_array = np.array(feature_list)
+        features = torch.from_numpy(feature_array)
+        g.ndata['attr'] = features.float()
+        labels = np.array(labels)
+    return g, labels
