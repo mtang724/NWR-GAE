@@ -18,7 +18,7 @@ class FNN(nn.Module):
         self.linear2 = nn.Linear(out_features, out_features)
     def forward(self, embedding):
         x = self.linear1(embedding)
-        x = self.linear2(x)
+        x = self.linear2(F.relu(x))
         x = F.gumbel_softmax(x)
         return x
 

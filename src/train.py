@@ -187,6 +187,9 @@ def train_synthetic_graphs():
     # G, role_id = graph_generator(width_basis=15, n_shapes = 5)
     # house perturbed
     # G, role_id = graph_generator(add_edges=4)
+    # G, role_id = graph_generator(width_basis=30, n_shapes = 10)
+    # house perturbed
+    # G, role_id = graph_generator(width_basis=30, n_shapes=10, add_edges=8)
     # Varied
     # G, role_id = graph_generator(width_basis=40, n_shapes = 8,
     #                             shape_list=[[["fan", 6]], [["star", 10]], [["house"]]])
@@ -236,6 +239,21 @@ def train_synthetic_graphs():
     one_hot_feature = F.one_hot(g.in_degrees())
     g.ndata['attr'] = one_hot_feature.float()
     print(g.ndata['attr'].shape)
+
+    in_nodes, out_nodes = g.edges()
+    neighbor_dict = {}
+    for in_node, out_node in zip(in_nodes, out_nodes):
+        if in_node.item() not in neighbor_dict:
+            neighbor_dict[in_node.item()] = []
+        neighbor_dict[in_node.item()].append(out_node.item())
+
+    temp_min = 0.3
+    ANNEAL_RATE = 0.00001
+    temp = 1
+    neighbor_num_list = []
+    for i in neighbor_dict:
+        neighbor_num_list.append(len(neighbor_dict[i]))
+    in_dim = max(neighbor_num_list) + 1
     # Train in_dim, hidden_dim, out_dim, layer_num, max_degree_num
     homs = []
     comps = []
@@ -244,6 +262,28 @@ def train_synthetic_graphs():
     sils = []
     for test_iter in range(1):
         node_embeddings = train(g, epoch=100, device= device)
+        GNNModel = GNNStructEncoder(in_dim, in_dim, 7, 2, in_dim, device=device)
+        GNNModel.to(device)
+        opt = torch.optim.Adam(GNNModel.parameters(), lr=5e-3, weight_decay=0.00003)
+        for i in tqdm(range(100)):
+            feats = g.ndata['attr']
+            feats = feats.to(device)
+            # g, h, ground_truth_degree_matrix, neighbor_dict, neighbor_num_list, in_dim, temp
+            loss, node_embeddings = GNNModel(g, feats, g.in_degrees(), neighbor_dict, neighbor_num_list, in_dim, temp, test = False, device=device)
+            if i % 100 == 1:
+                temp = np.maximum(temp * np.exp(-ANNEAL_RATE * i), temp_min)
+            if i == 0:
+                ## Draw everything
+                node_embedded = TSNE(n_components=2).fit_transform(node_embeddings.cpu().detach().numpy())
+                cluster.tsneplot(score=node_embedded, colorlist=role_id, figname="beforetrain_tsne")
+                labels_pred, colors, trans_data, nb_clust = cluster_graph(role_id, node_embeddings)
+                results = unsupervised_evaluate(colors, labels_pred, nb_clust)
+                print(results)
+                draw_pca(role_id, node_embeddings)
+            opt.zero_grad()
+            loss.backward()
+            print(i, loss.item())
+            opt.step()
         node_embedded = TSNE(n_components=2).fit_transform(node_embeddings.cpu().detach().numpy())
         cluster.tsneplot(score=node_embedded, colorlist=role_id, figname="aftertrain_tsne")
         labels_pred, colors, trans_data, nb_clust = cluster_graph(role_id, node_embeddings)
@@ -254,6 +294,7 @@ def train_synthetic_graphs():
         chs.append(ch)
         sils.append(sil)
         print("test iter:", str(test_iter))
+    print(homs)
     print('Homogeneity \t Completeness \t AMI \t nb clusters \t CH \t  Silhouette \n')
     print(str(average(homs)), str(average(comps)), str(average(amis)), str(nb_clust), str(average(chs)),
           str(average(sils)))
