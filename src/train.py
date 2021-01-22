@@ -262,28 +262,6 @@ def train_synthetic_graphs():
     sils = []
     for test_iter in range(1):
         node_embeddings = train(g, epoch=100, device= device)
-        GNNModel = GNNStructEncoder(in_dim, in_dim, 7, 2, in_dim, device=device)
-        GNNModel.to(device)
-        opt = torch.optim.Adam(GNNModel.parameters(), lr=5e-3, weight_decay=0.00003)
-        for i in tqdm(range(100)):
-            feats = g.ndata['attr']
-            feats = feats.to(device)
-            # g, h, ground_truth_degree_matrix, neighbor_dict, neighbor_num_list, in_dim, temp
-            loss, node_embeddings = GNNModel(g, feats, g.in_degrees(), neighbor_dict, neighbor_num_list, in_dim, temp, test = False, device=device)
-            if i % 100 == 1:
-                temp = np.maximum(temp * np.exp(-ANNEAL_RATE * i), temp_min)
-            if i == 0:
-                ## Draw everything
-                node_embedded = TSNE(n_components=2).fit_transform(node_embeddings.cpu().detach().numpy())
-                cluster.tsneplot(score=node_embedded, colorlist=role_id, figname="beforetrain_tsne")
-                labels_pred, colors, trans_data, nb_clust = cluster_graph(role_id, node_embeddings)
-                results = unsupervised_evaluate(colors, labels_pred, nb_clust)
-                print(results)
-                draw_pca(role_id, node_embeddings)
-            opt.zero_grad()
-            loss.backward()
-            print(i, loss.item())
-            opt.step()
         node_embedded = TSNE(n_components=2).fit_transform(node_embeddings.cpu().detach().numpy())
         cluster.tsneplot(score=node_embedded, colorlist=role_id, figname="aftertrain_tsne")
         labels_pred, colors, trans_data, nb_clust = cluster_graph(role_id, node_embeddings)
@@ -324,5 +302,5 @@ def train_real_datasets():
 
 
 if __name__ == '__main__':
-    # train_synthetic_graphs()
-    train_real_datasets()
+    train_synthetic_graphs()
+    # train_real_datasets()
