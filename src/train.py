@@ -275,7 +275,7 @@ def train_real_datasets(dataset_str):
     # attr, feat
     acc = 0
     for i in range(10):
-        node_embeddings = train(g, node_features, lr=5e-4, epoch=10, device=device, encoder="GCN")
+        node_embeddings = train(g, node_features, lr=5e-3, epoch=10, device=device, encoder="GCN")
         torch.save(node_embeddings.cpu().detach(), 'embeddings.pt')
         # node_embeddings = torch.load("embeddings.pt")
         input_dims = node_embeddings.shape
@@ -369,7 +369,7 @@ def train_new_datasets(dataset_str):
     # attr, feat
     acc = 0
     for i in range(10):
-        node_embeddings = train(g, node_features, lr=5e-4, epoch=50, device=device, encoder="GIN")
+        node_embeddings = train(g, node_features, lr=5e-3, epoch=50, device=device, encoder="GIN")
         torch.save(node_embeddings.cpu().detach(), 'embeddings.pt')
         # node_embeddings = torch.load("embeddings.pt")
         input_dims = node_embeddings.shape
@@ -383,7 +383,7 @@ def train_new_datasets(dataset_str):
         split = utils.DataSplit(dataset, shuffle=True)
         train_loader, val_loader, test_loader = split.get_split(batch_size=64, num_workers=0)
         # train_loader = DataLoader(dataset=dataset, batch_size=32, shuffle=True)
-        best = float('inf')
+        best = -float('inf')
         for epoch in range(100):
             for i, data in enumerate(train_loader, 0):
                 # data = data.to(device)
@@ -409,8 +409,8 @@ def train_new_datasets(dataset_str):
                         loss = criterion(outputs, labels)
                         total += labels.size(0)
                         correct += torch.sum(predicted == labels)
-                if loss < best:
-                    best = loss
+                if correct / total > best:
+                    best = correct / total
                     torch.save(FNN.state_dict(), 'best_mlp.pkl')
                 print(str(epoch), correct / total)
 
@@ -433,5 +433,5 @@ def train_new_datasets(dataset_str):
 
 if __name__ == '__main__':
     # train_synthetic_graphs()
-    # train_real_datasets(dataset_str="citeseer")
-    train_new_datasets(dataset_str="texas")
+    # train_real_datasets(dataset_str="cora")
+    train_new_datasets(dataset_str="cornell")
