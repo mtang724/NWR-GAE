@@ -24,7 +24,7 @@ class FNN(nn.Module):
     def forward(self, embedding):
         x = self.linear1(embedding)
         x = self.linear2(F.relu(x))
-        x = F.gumbel_softmax(x)
+        # x = F.gumbel_softmax(x)
         return x
 
 
@@ -90,7 +90,7 @@ def generate_gt_neighbor(neighbor_dict, node_embeddings, neighbor_num_list, in_d
 
 
 class GNNStructEncoder(nn.Module):
-    def __init__(self, node_num, in_dim, hidden_dim, out_dim, layer_num, sample_size, device, neighbor_num_list, GNN_name="GIN", norm_mode='PN', norm_scale=10):
+    def __init__(self, node_num, in_dim, hidden_dim, out_dim, layer_num, sample_size, device, neighbor_num_list, GNN_name="GIN", norm_mode='PN', norm_scale=1):
         super(GNNStructEncoder, self).__init__()
         self.norm = PairNorm(norm_mode, norm_scale)
         self.n_distribution = 7 # How many gaussian distribution should exist
@@ -100,19 +100,34 @@ class GNNStructEncoder(nn.Module):
             self.graphconv1 = GINConv(apply_func=self.linear1, aggregator_type='sum')
             self.linear2 = MLP(layer_num, hidden_dim, hidden_dim, hidden_dim)
             self.graphconv2 = GINConv(apply_func=self.linear2, aggregator_type='sum')
+            self.linear3 = MLP(layer_num, hidden_dim, hidden_dim, hidden_dim)
+            self.graphconv3 = GINConv(apply_func=self.linear3, aggregator_type='sum')
+            self.linear4 = MLP(layer_num, hidden_dim, hidden_dim, hidden_dim)
+            self.graphconv4 = GINConv(apply_func=self.linear4, aggregator_type='sum')
         else:
             self.graphconv1 = GraphConv(hidden_dim, hidden_dim)
             self.graphconv2 = GraphConv(hidden_dim, hidden_dim)
+            self.graphconv3 = GraphConv(hidden_dim, hidden_dim)
+            self.graphconv4 = GraphConv(hidden_dim, hidden_dim)
         self.neighbor_num_list = neighbor_num_list
         self.linear_classifier = MLP(1, hidden_dim, hidden_dim, self.n_distribution)
         self.linear_classifier2 = MLP(1, hidden_dim, hidden_dim, self.n_distribution)
         self.linear_classifier3 = MLP(1, hidden_dim, hidden_dim, self.n_distribution)
         self.neighbor_generator = MLP_generator(hidden_dim, hidden_dim, sample_size).to(device)
         # Gaussian Means, and std
-        self.gaussian_mean = nn.Parameter(torch.FloatTensor(sample_size, self.n_distribution, hidden_dim).uniform_(-0.5 / hidden_dim, 0.5 / hidden_dim)).to(device)
+        # self.gaussian_mean = nn.Parameter(torch.FloatTensor(sample_size, self.n_distribution, hidden_dim).uniform_(-0.5 / hidden_dim, 0.5 / hidden_dim)).to(device)
+        # self.gaussian_log_sigma = nn.Parameter(
+        #     torch.FloatTensor(sample_size, self.n_distribution, hidden_dim).uniform_(-0.5 / hidden_dim, 0.5 / hidden_dim)).to(device)
+        # self.m = torch.distributions.Normal(torch.zeros(sample_size, self.n_distribution, hidden_dim), torch.ones(sample_size, self.n_distribution, hidden_dim))
+
+        self.gaussian_mean = nn.Parameter(
+            torch.FloatTensor(sample_size, hidden_dim).uniform_(-0.5 / hidden_dim,
+                                                                                     0.5 / hidden_dim)).to(device)
         self.gaussian_log_sigma = nn.Parameter(
-            torch.FloatTensor(sample_size, self.n_distribution, hidden_dim).uniform_(-0.5 / hidden_dim, 0.5 / hidden_dim)).to(device)
-        self.m = torch.distributions.Normal(torch.zeros(sample_size, self.n_distribution, hidden_dim), torch.ones(sample_size, self.n_distribution, hidden_dim))
+            torch.FloatTensor(sample_size, hidden_dim).uniform_(-0.5 / hidden_dim,
+                                                                                     0.5 / hidden_dim)).to(device)
+        self.m = torch.distributions.Normal(torch.zeros(sample_size, hidden_dim),
+                                            torch.ones(sample_size, hidden_dim))
 
         # Before MLP Gaussian Means, and std
         self.mlp_gaussian_mean = nn.Parameter(
@@ -121,6 +136,8 @@ class GNNStructEncoder(nn.Module):
             torch.FloatTensor(hidden_dim).uniform_(-0.5 / hidden_dim, 0.5 / hidden_dim)).to(device)
         self.mlp_m = torch.distributions.Normal(torch.zeros(hidden_dim), torch.ones(hidden_dim))
 
+        self.layer1_generator = MLP_generator(hidden_dim, hidden_dim, sample_size)
+        self.layer2_generator = MLP_generator(hidden_dim, hidden_dim, sample_size)
         # Decoders
         self.degree_decoder = FNN(hidden_dim, hidden_dim, 1, 4)
         # self.degree_loss_func = FocalLoss(int(max_degree_num) + 1)
@@ -131,18 +148,25 @@ class GNNStructEncoder(nn.Module):
 
     def forward_encoder(self, g, h):
         # Apply graph convolution and activation
-        l1 = torch.relu(self.norm(self.graphconv1(g, h)))
+        # l1 = torch.relu(self.norm(self.graphconv1(g, h)))
+        l1 =self.graphconv1(g, h)
+        l1_norm = torch.relu(self.norm(l1))
         # l1 = F.normalize(l1, p=1, dim=1)
-        l2 = torch.relu(self.norm(self.graphconv2(g, l1)))
+        l2 = self.graphconv2(g, l1_norm)
+        l2_norm = torch.relu(self.norm(l2))
+        # l2 = torch.relu(self.norm(self.graphconv2(g, l1)))
         # l2 = F.normalize(l2, p=1, dim=1)
-        l3 = torch.relu(self.norm(self.graphconv2(g, l2)))
+        # l3 = self.graphconv3(g, l2_norm)
+        # l3_norm = torch.relu(self.norm(l3))
+        # l3 = torch.relu(self.norm(self.graphconv2(g, l2)))
         # l3 = F.normalize(l3, p=1, dim=1)
         # l4 = F.normalize(l4, p=1, dim=1)
-        l5 = self.graphconv2(g, l3) # 5 layers
+        l3_norm = 0
+        l5 = self.graphconv4(g, l2_norm) # 5 layers
         # l5 = F.normalize(l5, p=1, dim=1)
         # with g.local_scope():
         #     g.ndata['h'] = h
-        return l5, l1, l2, l3
+        return l5, l1_norm, l2_norm, l3_norm
 
     def sample_neighbors(self, indexes, neighbor_dict, gt_embeddings):
         sampled_embeddings_list = []
@@ -167,6 +191,7 @@ class GNNStructEncoder(nn.Module):
         degree_logits = self.degree_decoding(gij)
         ground_truth_degree_matrix = torch.unsqueeze(ground_truth_degree_matrix, dim=1)
         degree_loss = self.degree_loss_func(degree_logits, ground_truth_degree_matrix.float())
+        # print(degree_logits)
         _, degree_masks = torch.max(degree_logits.data, dim=1)
         h_loss = 0
         max_neighbor_num = max(neighbor_num_list)
@@ -181,58 +206,69 @@ class GNNStructEncoder(nn.Module):
             for i1, embedding in enumerate(gij):
                 indexes.append(i1)
             # print(len(indexes))
-            sampled_embeddings_list = self.sample_neighbors(indexes, neighbor_dict, l3)
+            sampled_embeddings_list = self.sample_neighbors(indexes, neighbor_dict, l2)
             # print(sampled_embeddings_list)
             for i, neighbor_embeddings1 in enumerate(sampled_embeddings_list):
                 index = indexes[i]
-                zij = F.gumbel_softmax(self.linear_classifier(gij[index]), tau=temp)
+                # zij = F.gumbel_softmax(self.linear_classifier(gij[index]), tau=temp)
                 std_z = self.m.sample().to(device)
                 var = self.gaussian_mean + self.gaussian_log_sigma.exp() * std_z
                 var = F.dropout(var, 0.2)
-                nhij = zij @ var
+                # nhij = zij @ var
+                nhij = var
+                # print (var.shape, nhij.shape)
+                # print(nhij.shape)
+                nhij = self.layer1_generator(nhij, device)
+                # print(nhij.shape)
                 generated_neighbors = nhij.tolist()
                 generated_neighbors = torch.unsqueeze(torch.FloatTensor(generated_neighbors), dim=0)
                 target_neighbors = torch.unsqueeze(torch.FloatTensor(neighbor_embeddings1), dim=0)
                 new_loss, new_index = hungarian_loss(generated_neighbors, target_neighbors, mask_len, self.pool)
                 local_index_loss += new_loss
+                # print("1", new_loss)
             # indexes2 = []
             # for i in indexes:
             #     indexes2 += neighbor_dict[i]
             # print (len(indexes2))
-            sampled_embeddings_list = self.sample_neighbors(indexes, neighbor_dict, l2)
+            sampled_embeddings_list = self.sample_neighbors(indexes, neighbor_dict, l1)
             for i, neighbor_embeddings1 in enumerate(sampled_embeddings_list):
                 index = indexes[i]
-                zij = F.gumbel_softmax(self.linear_classifier2(gij[index]), tau=temp)
+                # zij = F.gumbel_softmax(self.linear_classifier2(gij[index]), tau=temp)
                 std_z = self.m.sample().to(device)
                 var = self.gaussian_mean + self.gaussian_log_sigma.exp() * std_z
                 var = F.dropout(var, 0.2)
-                nhij = zij @ var
+                nhij = var
+                # nhij = zij @ var
+                nhij = self.layer2_generator(nhij, device)
                 generated_neighbors = nhij.tolist()
                 generated_neighbors = torch.unsqueeze(torch.FloatTensor(generated_neighbors), dim=0)
                 target_neighbors = torch.unsqueeze(torch.FloatTensor(neighbor_embeddings1), dim=0)
                 new_loss, new_index = hungarian_loss(generated_neighbors, target_neighbors, mask_len, self.pool)
                 local_index_loss += new_loss
+                # print("2", new_loss)
             indexes3 = []
             # for i in indexes2:
             #     indexes3 += neighbor_dict[i]
             # print(len(indexes3))
-            sampled_embeddings_list = self.sample_neighbors(indexes, neighbor_dict, l1)
-            for i, neighbor_embeddings1 in enumerate(sampled_embeddings_list):
-                index = indexes[i]
-                zij = F.gumbel_softmax(self.linear_classifier3(gij[index]), tau=temp)
-                std_z = self.m.sample().to(device)
-                var = self.gaussian_mean + self.gaussian_log_sigma.exp() * std_z
-                var = F.dropout(var, 0.2)
-                nhij = zij @ var
-                generated_neighbors = nhij.tolist()
-                generated_neighbors = torch.unsqueeze(torch.FloatTensor(generated_neighbors), dim=0)
-                target_neighbors = torch.unsqueeze(torch.FloatTensor(neighbor_embeddings1), dim=0)
-                new_loss, new_index = hungarian_loss(generated_neighbors, target_neighbors, mask_len, self.pool)
-                local_index_loss += new_loss
+            # sampled_embeddings_list = self.sample_neighbors(indexes, neighbor_dict, l1)
+            # for i, neighbor_embeddings1 in enumerate(sampled_embeddings_list):
+            #     index = indexes[i]
+            #     zij = F.gumbel_softmax(self.linear_classifier3(gij[index]), tau=temp)
+            #     std_z = self.m.sample().to(device)
+            #     var = self.gaussian_mean + self.gaussian_log_sigma.exp() * std_z
+            #     var = F.dropout(var, 0.2)
+            #     nhij = zij @ var
+            #     generated_neighbors = nhij.tolist()
+            #     generated_neighbors = torch.unsqueeze(torch.FloatTensor(generated_neighbors), dim=0)
+            #     target_neighbors = torch.unsqueeze(torch.FloatTensor(neighbor_embeddings1), dim=0)
+            #     new_loss, new_index = hungarian_loss(generated_neighbors, target_neighbors, mask_len, self.pool)
+            #     local_index_loss += new_loss
+                # print("3", new_loss)
             # print (local_index_loss)
             loss_list.append(local_index_loss)
         loss_list = torch.stack(loss_list)
         h_loss += torch.mean(loss_list)
+        print (degree_loss)
         loss = h_loss + degree_loss * 10
             # layer 2
             # generated_neighbors = torch.squeeze(torch.FloatTensor(generated_neighbors), dim=0)

@@ -156,8 +156,8 @@ def train(g, feats, lr, epoch, device, encoder):
             neighbor_dict[in_node.item()] = []
         neighbor_dict[in_node.item()].append(out_node.item())
 
-    temp_min = 0.3
-    ANNEAL_RATE = 0.00001
+    temp_min = 0.2
+    ANNEAL_RATE = 0.000001
     temp = 1
     neighbor_num_list = []
     for i in neighbor_dict:
@@ -168,7 +168,11 @@ def train(g, feats, lr, epoch, device, encoder):
     sample_size = 5
     GNNModel = GNNStructEncoder(node_num, in_dim, in_dim, 100, 2, sample_size, device=device, neighbor_num_list=neighbor_num_list, GNN_name=encoder)
     GNNModel.to(device)
-    opt = torch.optim.Adam(GNNModel.parameters(), lr=lr, weight_decay=0.00003)
+    degree_params = list(map(id, GNNModel.degree_decoder.parameters()))
+    base_params = filter(lambda p: id(p) not in degree_params,
+                         GNNModel.parameters())
+
+    opt = torch.optim.Adam([{'params': base_params}, {'params': GNNModel.degree_decoder.parameters(), 'lr': lr * 1e-2}],lr=lr, weight_decay=0.0003)
     for i in tqdm(range(epoch)):
         feats = feats.to(device)
         # g, h, ground_truth_degree_matrix, neighbor_dict, neighbor_num_list, in_dim, temp
@@ -275,7 +279,7 @@ def train_real_datasets(dataset_str):
     # attr, feat
     acc = 0
     for i in range(10):
-        node_embeddings = train(g, node_features, lr=5e-3, epoch=10, device=device, encoder="GCN")
+        node_embeddings = train(g, node_features, lr=5e-5, epoch=15, device=device, encoder="GCN")
         torch.save(node_embeddings.cpu().detach(), 'embeddings.pt')
         # node_embeddings = torch.load("embeddings.pt")
         input_dims = node_embeddings.shape
@@ -309,7 +313,7 @@ def train_real_datasets(dataset_str):
             train_loader, val_loader, test_loader = split.get_split(batch_size=64, num_workers=0)
             # train_loader = DataLoader(dataset=dataset, batch_size=32, shuffle=True)
             best = float('inf')
-            for epoch in range(150):
+            for epoch in range(100):
                 for i, data in enumerate(train_loader, 0):
                     # data = data.to(device)
                     inputs, labels = data
@@ -358,7 +362,7 @@ def train_real_datasets(dataset_str):
 def train_new_datasets(dataset_str):
     gcn_setting = False
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    g, labels= utils.read_real_datasets(dataset_str)
+    g, labels = utils.read_real_datasets(dataset_str)
     g = g.to(device)
     node_features = g.ndata['attr']
     node_labels = labels
@@ -369,7 +373,7 @@ def train_new_datasets(dataset_str):
     # attr, feat
     acc = 0
     for i in range(10):
-        node_embeddings = train(g, node_features, lr=5e-3, epoch=50, device=device, encoder="GIN")
+        node_embeddings = train(g, node_features, lr=1e-4, epoch=25, device=device, encoder="GCN")
         torch.save(node_embeddings.cpu().detach(), 'embeddings.pt')
         # node_embeddings = torch.load("embeddings.pt")
         input_dims = node_embeddings.shape
@@ -413,7 +417,6 @@ def train_new_datasets(dataset_str):
                     best = correct / total
                     torch.save(FNN.state_dict(), 'best_mlp.pkl')
                 print(str(epoch), correct / total)
-
         with torch.no_grad():
             FNN.load_state_dict(torch.load('best_mlp.pkl'))
             correct = 0

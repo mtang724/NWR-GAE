@@ -51,18 +51,18 @@ class MLP(nn.Module):
 class MLP_generator(nn.Module):
     def __init__(self, input_dim, output_dim, sample_size):
         super(MLP_generator, self).__init__()
-        self.linears = []
-        for i in range(sample_size):
-            self.linear = nn.Linear(input_dim, output_dim)
-            self.linears.append(self.linear)
+        # self.linears = []
+        # for i in range(sample_size):
+        self.linear = nn.Linear(input_dim, output_dim)
+            # self.linears.append(self.linear)
     def forward(self, embedding, device):
         neighbors = []
-        for linear in self.linears:
-            linear = linear.to(device)
-            neighbor_embedding = linear(embedding)
-            neighbors.append(neighbor_embedding)
-        neighbors = torch.stack(neighbors)
-        return neighbors
+        # for linear in self.linears:
+        #     linear = linear.to(device)
+        neighbor_embedding = self.linear(embedding)
+        # neighbors.append(neighbor_embedding)
+        # neighbors = torch.stack(neighbors)
+        return neighbor_embedding
 
 
 class PairNorm(nn.Module):
