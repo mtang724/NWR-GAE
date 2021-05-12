@@ -6,11 +6,13 @@ import networkx as nx
 import numpy as np
 from data.shapes import *
 import data.utils as utils
+import torch.nn.functional as F
+import torch
 
 
 def build_structure(width_basis, basis_type, list_shapes, start=0,
                     rdm_basis_plugins =False, add_random_edges=0,
-                    plot=False, savefig=False):
+                    plot=False, savefig=False, add_attributes=False):
     '''This function creates a basis (torus, string, or cycle)
     and attaches elements of the type in the list randomly along the basis.
     Possibility to add random edges afterwards.
@@ -32,6 +34,11 @@ def build_structure(width_basis, basis_type, list_shapes, start=0,
     colors           :       labels for each role
     '''
     basis, role_id = eval(basis_type)(start, width_basis)
+    attrs = {}
+    if add_attributes:
+        for node in basis.nodes:
+            attrs[node] = {"attr": np.array([10, 10, 10, 10, 10, basis.degree[node]])}
+    nx.set_node_attributes(basis, attrs)
     n_basis, n_shapes = nx.number_of_nodes(basis), len(list_shapes)
     start += n_basis        # indicator of the id of the next node
 
@@ -52,6 +59,10 @@ def build_structure(width_basis, basis_type, list_shapes, start=0,
         if len(shape)>1:
             args += shape[1:]
         args += [0]
+        if add_attributes:
+            args += [shape_id * 5]
+        else:
+            args += [0]
         graph_s, roles_graph_s = eval(shape_type)(*args)
         n_s = nx.number_of_nodes(graph_s)
         try:
@@ -60,7 +71,7 @@ def build_structure(width_basis, basis_type, list_shapes, start=0,
             col_start = np.max(role_id) + 1
             seen_shapes[shape_type] = [col_start, n_s]
         # Attach the shape to the basis
-        basis.add_nodes_from(graph_s.nodes())
+        basis.add_nodes_from(graph_s.nodes(data=True))
         basis.add_edges_from(graph_s.edges())
         basis.add_edges_from([(start, plugins[shape_id])])
         role_id[plugins[shape_id]] += (-2 - 10 * seen_shapes[shape_type][0])

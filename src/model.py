@@ -129,6 +129,9 @@ class GNNStructEncoder(nn.Module):
         self.m = torch.distributions.Normal(torch.zeros(sample_size, hidden_dim),
                                             torch.ones(sample_size, hidden_dim))
 
+        self.m_h = torch.distributions.Normal(torch.zeros(sample_size, hidden_dim),
+                                            50* torch.ones(sample_size, hidden_dim))
+
         # Before MLP Gaussian Means, and std
         self.mlp_gaussian_mean = nn.Parameter(
             torch.FloatTensor(hidden_dim).uniform_(-0.5 / hidden_dim, 0.5 / hidden_dim)).to(device)
@@ -138,6 +141,8 @@ class GNNStructEncoder(nn.Module):
 
         self.layer1_generator = MLP_generator(hidden_dim, hidden_dim, sample_size)
         self.layer2_generator = MLP_generator(hidden_dim, hidden_dim, sample_size)
+        self.layer3_generator = MLP_generator(hidden_dim, hidden_dim, sample_size)
+        self.layer4_generator = MLP_generator(hidden_dim, hidden_dim, sample_size)
         # Decoders
         self.degree_decoder = FNN(hidden_dim, hidden_dim, 1, 4)
         # self.degree_loss_func = FocalLoss(int(max_degree_num) + 1)
@@ -152,8 +157,8 @@ class GNNStructEncoder(nn.Module):
         l1 =self.graphconv1(g, h)
         l1_norm = torch.relu(self.norm(l1))
         # l1 = F.normalize(l1, p=1, dim=1)
-        l2 = self.graphconv2(g, l1_norm)
-        l2_norm = torch.relu(self.norm(l2))
+        # l2 = self.graphconv2(g, l1_norm)
+        # l2_norm = torch.relu(self.norm(l2))
         # l2 = torch.relu(self.norm(self.graphconv2(g, l1)))
         # l2 = F.normalize(l2, p=1, dim=1)
         # l3 = self.graphconv3(g, l2_norm)
@@ -161,8 +166,9 @@ class GNNStructEncoder(nn.Module):
         # l3 = torch.relu(self.norm(self.graphconv2(g, l2)))
         # l3 = F.normalize(l3, p=1, dim=1)
         # l4 = F.normalize(l4, p=1, dim=1)
+        l2_norm = 0
         l3_norm = 0
-        l5 = self.graphconv4(g, l2_norm) # 5 layers
+        l5 = self.graphconv4(g, l1_norm) # 5 layers
         # l5 = F.normalize(l5, p=1, dim=1)
         # with g.local_scope():
         #     g.ndata['h'] = h
@@ -206,25 +212,26 @@ class GNNStructEncoder(nn.Module):
             for i1, embedding in enumerate(gij):
                 indexes.append(i1)
             # print(len(indexes))
-            sampled_embeddings_list = self.sample_neighbors(indexes, neighbor_dict, l2)
-            # print(sampled_embeddings_list)
-            for i, neighbor_embeddings1 in enumerate(sampled_embeddings_list):
-                index = indexes[i]
-                # zij = F.gumbel_softmax(self.linear_classifier(gij[index]), tau=temp)
-                std_z = self.m.sample().to(device)
-                var = self.gaussian_mean + self.gaussian_log_sigma.exp() * std_z
-                var = F.dropout(var, 0.2)
-                # nhij = zij @ var
-                nhij = var
-                # print (var.shape, nhij.shape)
-                # print(nhij.shape)
-                nhij = self.layer1_generator(nhij, device)
-                # print(nhij.shape)
-                generated_neighbors = nhij.tolist()
-                generated_neighbors = torch.unsqueeze(torch.FloatTensor(generated_neighbors), dim=0)
-                target_neighbors = torch.unsqueeze(torch.FloatTensor(neighbor_embeddings1), dim=0)
-                new_loss, new_index = hungarian_loss(generated_neighbors, target_neighbors, mask_len, self.pool)
-                local_index_loss += new_loss
+            #   here
+            # sampled_embeddings_list = self.sample_neighbors(indexes, neighbor_dict, l2)
+            # # print(sampled_embeddings_list)
+            # for i, neighbor_embeddings1 in enumerate(sampled_embeddings_list):
+            #     index = indexes[i]
+            #     # zij = F.gumbel_softmax(self.linear_classifier(gij[index]), tau=temp)
+            #     std_z = self.m.sample().to(device)
+            #     var = self.gaussian_mean + self.gaussian_log_sigma.exp() * std_z
+            #     var = F.dropout(var, 0.2)
+            #     # nhij = zij @ var
+            #     nhij = var
+            #     # print (var.shape, nhij.shape)
+            #     # print(nhij.shape)
+            #     nhij = self.layer1_generator(nhij, device)
+            #     generated_neighbors = nhij.tolist()
+            #     generated_neighbors = torch.unsqueeze(torch.FloatTensor(generated_neighbors), dim=0)
+            #     target_neighbors = torch.unsqueeze(torch.FloatTensor(neighbor_embeddings1), dim=0)
+            #     new_loss, new_index = hungarian_loss(generated_neighbors, target_neighbors, mask_len, self.pool)
+            #     local_index_loss += new_loss
+            #   here
                 # print("1", new_loss)
             # indexes2 = []
             # for i in indexes:
@@ -246,6 +253,38 @@ class GNNStructEncoder(nn.Module):
                 new_loss, new_index = hungarian_loss(generated_neighbors, target_neighbors, mask_len, self.pool)
                 local_index_loss += new_loss
                 # print("2", new_loss)
+            # sampled_embeddings_list = self.sample_neighbors(indexes, neighbor_dict, l3)
+            # for i, neighbor_embeddings1 in enumerate(sampled_embeddings_list):
+            #     index = indexes[i]
+            #     # zij = F.gumbel_softmax(self.linear_classifier2(gij[index]), tau=temp)
+            #     std_z = self.m.sample().to(device)
+            #     var = self.gaussian_mean + self.gaussian_log_sigma.exp() * std_z
+            #     var = F.dropout(var, 0.2)
+            #     nhij = var
+            #     # nhij = zij @ var
+            #     nhij = self.layer3_generator(nhij, device)
+            #     generated_neighbors = nhij.tolist()
+            #     generated_neighbors = torch.unsqueeze(torch.FloatTensor(generated_neighbors), dim=0)
+            #     target_neighbors = torch.unsqueeze(torch.FloatTensor(neighbor_embeddings1), dim=0)
+            #     new_loss, new_index = hungarian_loss(generated_neighbors, target_neighbors, mask_len, self.pool)
+            #     local_index_loss += new_loss
+            sampled_embeddings_list = self.sample_neighbors(indexes, neighbor_dict, h)
+            for i, neighbor_embeddings1 in enumerate(sampled_embeddings_list):
+                index = indexes[i]
+                # zij = F.gumbel_softmax(self.linear_classifier2(gij[index]), tau=temp)
+                std_z = self.m_h.sample().to(device)
+                var = self.gaussian_mean + self.gaussian_log_sigma.exp() * std_z
+                var = F.dropout(var, 0.2)
+                nhij = var
+                # nhij = zij @ var
+                nhij = self.layer4_generator(nhij, device)
+                # print(nhij)
+                # print(neighbor_embeddings1)
+                generated_neighbors = nhij.tolist()
+                generated_neighbors = torch.unsqueeze(torch.FloatTensor(generated_neighbors), dim=0)
+                target_neighbors = torch.unsqueeze(torch.FloatTensor(neighbor_embeddings1), dim=0)
+                new_loss, new_index = hungarian_loss(generated_neighbors, target_neighbors, mask_len, self.pool)
+                local_index_loss += new_loss
             indexes3 = []
             # for i in indexes2:
             #     indexes3 += neighbor_dict[i]

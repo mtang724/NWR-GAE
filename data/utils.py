@@ -21,7 +21,8 @@ from torch.utils.data import Dataset
 from torch.utils.data.sampler import SubsetRandomSampler
 
 import numpy as np
-
+# import build_graph
+import seaborn as sb
 
 class DataSplit:
 
@@ -152,14 +153,40 @@ def read_real_datasets(datasets):
         node_lines = node_feature_file.readlines()[1:]
         feature_list = []
         labels = []
+        max_len = 0
         for node_line in node_lines:
             node_id, feature, label = node_line.split("\t")
             labels.append(int(label))
             features = feature.split(",")
+            max_len = max(len(features), max_len)
             feature_list.append([float(feature) for feature in features])
-        feature_array = np.array(feature_list)
+        feature_pad_list = []
+        for features in feature_list:
+            features += [0] * (max_len - len(features))
+            feature_pad_list.append(features)
+        feature_array = np.array(feature_pad_list)
         features = torch.from_numpy(feature_array)
         g.ndata['attr'] = features.float()
         labels = np.array(labels)
         labels = torch.FloatTensor(labels)
     return g, labels
+
+def synthetic_graph_generator(width_basis=15, basis_type = "cycle", n_shapes = 5, shape_list=[[["house"]]], identifier = 'AA', add_edges = 0, plot = False):
+    ################################### EXAMPLE TO BUILD A SIMPLE REGULAR STRUCTURE ##########
+    ## REGULAR STRUCTURE: the most simple structure:  basis + n small patterns of a single type
+    ### 1. Choose the basis (cycle, torus or chain)
+    ### 2. Add the shapes
+    list_shapes = []
+    for shape in shape_list:
+        list_shapes += shape * n_shapes
+    print(list_shapes)
+
+    ### 3. Give a name to the graph
+    name_graph = 'houses' + identifier
+    sb.set_style('white')
+
+    ### 4. Pass all these parameters to the Graph Structure
+    G, communities, plugins, role_id = build_graph.build_structure(width_basis, basis_type, list_shapes, start=0,
+                                                                   add_random_edges=add_edges,
+                                                                   plot=plot, savefig=False)
+    return G, role_id, identifier
