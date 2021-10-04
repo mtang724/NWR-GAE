@@ -1,4 +1,6 @@
-pytorch
+torch
+torchvision
+torchaudio
 networkx
 matplotlib
 scipy
@@ -7,3 +9,4 @@ dgl
 sklearn
 bioinfokit
 requests
+tqdm

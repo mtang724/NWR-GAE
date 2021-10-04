@@ -1,7 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-@author: cdonnat
-"""
 ### Random tools useful for saveing stuff and manipulating pickle/numpy objects
 import numpy as np
 import pickle

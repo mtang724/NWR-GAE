@@ -54,19 +54,27 @@ class MLP_generator(nn.Module):
         # self.linears = []
         # for i in range(sample_size):
         self.linear = nn.Linear(input_dim, output_dim)
+        self.linear2 = nn.Linear(output_dim, output_dim)
+        self.linear3 = nn.Linear(output_dim, output_dim)
+        self.linear4 = nn.Linear(output_dim, output_dim)
+        # self.linear5 = nn.Linear(output_dim, output_dim)
             # self.linears.append(self.linear)
     def forward(self, embedding, device):
         neighbors = []
         # for linear in self.linears:
         #     linear = linear.to(device)
-        neighbor_embedding = self.linear(embedding)
+        neighbor_embedding = F.relu(self.linear(embedding))
+        neighbor_embedding = F.relu(self.linear2(neighbor_embedding))
+        neighbor_embedding = F.relu(self.linear3(neighbor_embedding))
+        neighbor_embedding = self.linear4(neighbor_embedding)
+        # neighbor_embedding = self.linear5(neighbor_embedding)
         # neighbors.append(neighbor_embedding)
         # neighbors = torch.stack(neighbors)
         return neighbor_embedding
 
 
 class PairNorm(nn.Module):
-    def __init__(self, mode='PN', scale=1):
+    def __init__(self, mode='PN', scale=10):
         """
             mode:
               'None' : No normalization
