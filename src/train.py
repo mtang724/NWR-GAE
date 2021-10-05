@@ -474,7 +474,7 @@ def train_new_datasets(dataset_str, identify, epoch_num = 10, lr = 5e-6, encoder
         #     myfile.write("epoch" + str(epoch_num) + ":" + str(result) + "\n")
     print("mean:")
     print(statistics.mean(acc))
-    print("std:")
+    print("std:") 
     print(statistics.stdev(acc))
     # with open("../experiments_results/script_results/{}_out_{}_{}_{}.txt".format(identify, dataset_str, index, sample_size), "a") as myfile:
     #     myfile.write("mean:" + str(statistics.mean(acc)) + "\n")
@@ -485,7 +485,7 @@ if __name__ == '__main__':
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     parser = argparse.ArgumentParser(description='parameters')
-    parser.add_argument('--dataset', type=str, default="film")
+    parser.add_argument('--dataset', type=str, default="cora")
     parser.add_argument('--lr', type=float, default=5e-5)
     parser.add_argument('--epoch_num', type=int, default=8)
     parser.add_argument('--lambda_loss', type=float, default=1e-6)
