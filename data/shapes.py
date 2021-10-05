@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
 import scipy as sc
+import torch.nn.functional as F
 
 
 def barbel_graph(start, n1, n2, role_start=0, plot=False):
@@ -193,7 +194,7 @@ def hollow(start, role_start=0, plot=False):
     return graph, roles
 
 
-def house(start, role_start=0, plot=False):
+def house(start, role_start=0, plot=False, feature_no=None):
     '''Builds a house-like  graph, with index of nodes starting at start
     and role_ids at role_start
     INPUT:
@@ -207,6 +208,8 @@ def house(start, role_start=0, plot=False):
     roles       :    list of the roles of the nodes (indexed starting at
                      role_start)
     '''
+    if feature_no != None:
+        role_start = feature_no
     graph = nx.Graph()
     graph.add_nodes_from(range(start, start + 5))
     graph.add_edges_from([(start, start + 1), (start + 1, start + 2),
@@ -215,6 +218,11 @@ def house(start, role_start=0, plot=False):
     graph.add_edges_from([(start + 4, start), (start + 4, start + 1)])
     roles = [role_start, role_start, role_start + 1,
              role_start + 1, role_start + 2]
+    attrs = {}
+    if feature_no != None:
+        for node in graph.nodes:
+            attrs[node] = {"attr": np.array([feature_no, feature_no, feature_no, feature_no, feature_no, graph.degree[node]])}
+    nx.set_node_attributes(graph, attrs)
     if plot is True: plot_networkx(graph, roles)
     return graph, roles
 
