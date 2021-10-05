@@ -402,7 +402,7 @@ def train_new_datasets(dataset_str, identify, epoch_num = 10, lr = 5e-6, encoder
     else:
         hidden_dim = hidden_dim
     acc = []
-    for index in range(1):
+    for index in range(5):
         # epoch_num = 2 * index
         start_time = time.time()
         node_embeddings, loss = train(g, node_features, lr=lr, epoch=epoch_num, device=device, encoder=encoder, lambda_loss = lambda_loss, sample_size=sample_size, hidden_dim=hidden_dim)
@@ -450,10 +450,10 @@ def train_new_datasets(dataset_str, identify, epoch_num = 10, lr = 5e-6, encoder
                         correct += torch.sum(predicted == labels)
                 if correct / total > best:
                     best = correct / total
-                    torch.save(FNN.state_dict(), 'best_mlp2.pkl')
+                    torch.save(FNN.state_dict(), 'best_mlp_{}.pkl'.format(index))
                 print(str(epoch), correct / total)
         with torch.no_grad():
-            FNN.load_state_dict(torch.load('best_mlp2.pkl'))
+            FNN.load_state_dict(torch.load('best_mlp_{}.pkl'.format(index)))
             correct = 0
             total = 0
             for data in test_loader:
@@ -486,11 +486,11 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='parameters')
     parser.add_argument('--dataset', type=str, default="film")
-    parser.add_argument('--lr', type=float, default=5e-7)
+    parser.add_argument('--lr', type=float, default=5e-5)
     parser.add_argument('--epoch_num', type=int, default=8)
     parser.add_argument('--lambda_loss', type=float, default=1e-6)
-    parser.add_argument('--sample_size', type=int, default=15)
-    parser.add_argument('--dimension', type=int, default=30)
+    parser.add_argument('--sample_size', type=int, default=5)
+    parser.add_argument('--dimension', type=int, default=50)
     parser.add_argument('--identify', type=str, default="sample")
     parser.add_argument('--dataset_type', type=str, default="real")
 

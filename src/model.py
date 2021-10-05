@@ -55,6 +55,7 @@ def outer(a, b=None):
 
 
 def per_sample_hungarian_loss(sample_np):
+    sample_np[sample_np == np.inf] = 0
     row_idx, col_idx = scipy.optimize.linear_sum_assignment(sample_np)
     return row_idx, col_idx
 
@@ -186,7 +187,7 @@ class GNNStructEncoder(nn.Module):
         # Apply graph convolution and activation
         # l1 = torch.relu(self.norm(self.graphconv1(g, h)))
         l1 = self.graphconv1(g, h)
-        l1_norm = F.relu(self.norm(l1))
+        l1_norm = F.tanh(self.norm(l1))
         # l2 = self.graphconv2(g, l1_norm)
         # l2_norm = torch.relu(self.norm(l2))
         # l2 = torch.relu(self.norm(self.graphconv2(g, l1)))
@@ -239,7 +240,7 @@ class GNNStructEncoder(nn.Module):
         loss_list = []
         total_sample_time = 0
         total_matching_time = 0
-        for _ in range(4):
+        for _ in range(3):
             local_index_loss = 0
             indexes = []
             for i1, embedding in enumerate(gij):
@@ -276,8 +277,8 @@ class GNNStructEncoder(nn.Module):
                 avg_neighbor_norm = sum_neighbor_norm / self.sample_size
                 # hun_loss = hungarian_loss1(generated_neighbors, torch.FloatTensor(neighbor_embeddings1), mask_len1)
                 # print("hun loss", hun_loss)
-                generated_neighbors = torch.unsqueeze(generated_neighbors, dim=0)
-                target_neighbors = torch.unsqueeze(torch.FloatTensor(neighbor_embeddings1), dim=0)
+                generated_neighbors = torch.unsqueeze(generated_neighbors, dim=0).to(device)
+                target_neighbors = torch.unsqueeze(torch.FloatTensor(neighbor_embeddings1), dim=0).to(device)
                 # print(generated_neighbors[0][0], target_neighbors[0][0])
                 hun_loss, new_index = hungarian_loss(generated_neighbors, target_neighbors, mask_len1, self.pool)
                 avg_hun_loss = hun_loss
