@@ -1,5 +1,8 @@
 # NWR-GAE
 
+An implementation of ICLR 2022 Paper: [Graph Auto-Encoder via Neighborhood Wasserstein Reconstruction]
+(https://openreview.net/forum?id=ATUh28lnSuW)
+
 ## Required Packages
 
 Before to execute NWR-GAE, it is necessary to install the following packages using requirments.txt:
@@ -13,6 +16,7 @@ The repository is organised as follows:
 - `datasets/` contains the necessary dataset files for real-world datasets;
 - `edgelists/` contains the necessary dataset files for real-world datasets in edgelist format;
 - `src/` contains the implementation of the NW-GAE pipeline (`model.py`) and our training file (`train.py`);
+- `src/layers` contains the network layers, such as MLP, PairNorm (`layers.py`).
 - `src/utils` contains the necessary processing subroutines (`utils.py`).
 
 ## Basic Usage
@@ -23,25 +27,27 @@ The repository is organised as follows:
 
 **Mixed:** chameleon, squirrel, film (actor)
 
+**Synthetic:** generated from https://github.com/snap-stanford/graphwave
+
 ### Support Parameters
-**--dataset**, supported datasets above, default: chameleon
+**--dataset**, supported datasets above, default: texas
 
-**--lr**, learning rate for neighborhood reconstructor, default: 5e-7
+**--lr**, learning rate for neighborhood reconstructor, default: 5e-6
 
-**--epoch_num**, training epoch size, default: 4
+**--epoch_num**, training epoch size, default: 100
 
-**--lambda_loss**, balance weights for degree and neighborhood information decoder, default: 0.1
+**--lambda_loss**, balance weights for degree and neighborhood information decoder, default: 1e-4
 
 **--sample_size**, size of neighborhood down sampling, default: 5
 
-**--dimension**, dimension of final output embeddings, default: input feature dimension
+**--dimension**, dimension of final output embeddings, default: input feature dimension for structure datasets
 
 ### Example
 
 ```bash
 cd src
-python train.py --dataset cornell # real-world datasets
+python train.py --dataset texas # real-world datasets
 python train.py --dataset_type synthetic # Synthetic datasets
 ```
 
-, the default setting can run most of the state-of-art results. 
+, the default setting can run most of the state-of-art results (especially on structure-oriented/mixed datasets, i.e. cornell, texas, wisconsin). 

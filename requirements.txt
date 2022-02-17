@@ -1,4 +1,4 @@
-torch
+torch==1.9.1
 torchvision
 torchaudio
 networkx
