@@ -216,7 +216,7 @@ class GNNStructEncoder(nn.Module):
             local_index_loss_sum += local_index_loss
             local_index_loss, new_index = self.reconstruction_neighbors(self.layer2_generator, new_index, neighbor_dict, l2, l1, device)
             local_index_loss_sum += local_index_loss
-            loss_list.append(local_index_loss)
+            loss_list.append(local_index_loss_sum)
         loss_list = torch.stack(loss_list)
         h_loss += torch.mean(loss_list)
         loss = self.lambda_loss * h_loss + degree_loss
