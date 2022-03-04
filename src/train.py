@@ -23,7 +23,7 @@ np.random.seed(42)
 
 
 # Training
-def train(g, feats, lr, epoch, device, encoder, lambda_loss, hidden_dim, sample_size=10):
+def train(g, feats, lr, epoch, device, encoder, lambda_loss1, lambda_loss2, hidden_dim, sample_size=10):
     '''
      Main training function
      INPUT:
@@ -48,7 +48,7 @@ def train(g, feats, lr, epoch, device, encoder, lambda_loss, hidden_dim, sample_
     for i in neighbor_dict:
         neighbor_num_list.append(len(neighbor_dict[i]))
     in_dim = feats.shape[1]
-    GNNModel = GNNStructEncoder(in_dim, hidden_dim, 2, sample_size, device=device, neighbor_num_list=neighbor_num_list, GNN_name=encoder, lambda_loss=lambda_loss)
+    GNNModel = GNNStructEncoder(in_dim, hidden_dim, 2, sample_size, device=device, neighbor_num_list=neighbor_num_list, GNN_name=encoder, lambda_loss1=lambda_loss1, lambda_loss2=lambda_loss2)
     GNNModel.to(device)
     degree_params = list(map(id, GNNModel.degree_decoder.parameters()))
     base_params = filter(lambda p: id(p) not in degree_params,
@@ -103,7 +103,7 @@ def train_synthetic_graphs(attributed = False):
         neighbor_num_list = []
         for i in neighbor_dict:
             neighbor_num_list.append(len(neighbor_dict[i]))
-        node_embeddings, _ = train(g, g.ndata['attr'], lr=5e-3, epoch=100, device=device, encoder="SAGE", lambda_loss=1e-1, hidden_dim=6)
+        node_embeddings, _ = train(g, g.ndata['attr'], lr=5e-3, epoch=100, device=device, encoder="SAGE", lambda_loss1=1e-1, lambda_loss2=1, hidden_dim=6)
         node_embedded = TSNE(n_components=2).fit_transform(node_embeddings.cpu().detach().numpy())
         labels_pred, colors, trans_data, nb_clust = cluster_graph(role_id, node_embeddings)
         hom, comp, ami, nb_clust, ch, sil = unsupervised_evaluate(colors, labels_pred, trans_data, nb_clust)
@@ -132,7 +132,7 @@ def evaluate(model, embeddings, labels, mask):
         return correct.item() * 1.0 / len(labels)
 
 
-def train_real_datasets(dataset_str, epoch_num = 10, lr = 5e-6, encoder = "GCN", lambda_loss=1e-4, sample_size=8, hidden_dim=None):
+def train_real_datasets(dataset_str, epoch_num = 10, lr = 5e-6, encoder = "GCN", lambda_loss1=1e-4, lambda_loss2=1, sample_size=8, hidden_dim=None):
     gcn_setting = False
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     dataset = CitationGraphDataset(dataset_str)
@@ -150,7 +150,7 @@ def train_real_datasets(dataset_str, epoch_num = 10, lr = 5e-6, encoder = "GCN",
         hidden_dim = hidden_dim
     acc = []
     for index in range(10):
-        node_embeddings, _ = train(g, node_features, lr=lr, epoch=epoch_num, device=device, encoder=encoder, lambda_loss=lambda_loss, hidden_dim=hidden_dim, sample_size=sample_size)
+        node_embeddings, _ = train(g, node_features, lr=lr, epoch=epoch_num, device=device, encoder=encoder, lambda_loss1=lambda_loss1, lambda_loss2=lambda_loss2, hidden_dim=hidden_dim, sample_size=sample_size)
         input_dims = node_embeddings.shape
         print(input_dims[1])
         class_number = int(max(node_labels)) + 1
@@ -228,7 +228,7 @@ def train_real_datasets(dataset_str, epoch_num = 10, lr = 5e-6, encoder = "GCN",
             acc.append((correct / total).item())
 
 
-def train_new_datasets(dataset_str, epoch_num = 10, lr = 5e-6, encoder = "GCN", lambda_loss=1e-4, sample_size=10, hidden_dim=None):
+def train_new_datasets(dataset_str, epoch_num = 10, lr = 5e-6, encoder = "GCN", lambda_loss1=1e-4, lambda_loss2=1, sample_size=10, hidden_dim=None):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     g, labels = utils.read_real_datasets(dataset_str)
     g = g.to(device)
@@ -241,7 +241,7 @@ def train_new_datasets(dataset_str, epoch_num = 10, lr = 5e-6, encoder = "GCN", 
         hidden_dim = hidden_dim
     acc = []
     for index in range(10):
-        node_embeddings, loss = train(g, node_features, lr=lr, epoch=epoch_num, device=device, encoder=encoder, lambda_loss = lambda_loss, sample_size=sample_size, hidden_dim=hidden_dim)
+        node_embeddings, loss = train(g, node_features, lr=lr, epoch=epoch_num, device=device, encoder=encoder, lambda_loss1=lambda_loss1, lambda_loss2=lambda_loss2, sample_size=sample_size, hidden_dim=hidden_dim)
         input_dims = node_embeddings.shape
         print(input_dims[1])
         class_number = int(max(node_labels)) + 1
@@ -311,7 +311,8 @@ if __name__ == '__main__':
     parser.add_argument('--dataset', type=str, default="texas")
     parser.add_argument('--lr', type=float, default=5e-6)
     parser.add_argument('--epoch_num', type=int, default=100)
-    parser.add_argument('--lambda_loss', type=float, default=1e-4)
+    parser.add_argument('--lambda_loss1', type=float, default=1e-4)
+    parser.add_argument('--lambda_loss2', type=float, default=1)
     parser.add_argument('--sample_size', type=int, default=5)
     parser.add_argument('--dimension', type=int, default=1700)
     parser.add_argument('--identify', type=str, default="sample")
@@ -322,8 +323,8 @@ if __name__ == '__main__':
     if args.dataset_type == "real":
         dataset_str = args.dataset
         if dataset_str == "cora" or dataset_str == "citeseer" or dataset_str == "pubmed":
-            train_real_datasets(dataset_str=dataset_str, lr=args.lr, epoch_num=args.epoch_num, lambda_loss=args.lambda_loss, encoder="GCN", sample_size=args.sample_size, hidden_dim=args.dimension)
+            train_real_datasets(dataset_str=dataset_str, lr=args.lr, epoch_num=args.epoch_num, lambda_loss1=args.lambda_loss1, lambda_loss2=args.lambda_loss2, encoder="GCN", sample_size=args.sample_size, hidden_dim=args.dimension)
         else:
-            train_new_datasets(dataset_str=dataset_str, lr=args.lr, epoch_num=args.epoch_num, lambda_loss=args.lambda_loss, encoder="GCN", sample_size=args.sample_size, hidden_dim=args.dimension)
+            train_new_datasets(dataset_str=dataset_str, lr=args.lr, epoch_num=args.epoch_num, lambda_loss1=args.lambda_loss1, lambda_loss2=args.lambda_loss2, encoder="GCN", sample_size=args.sample_size, hidden_dim=args.dimension)
     else:
         train_synthetic_graphs()

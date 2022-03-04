@@ -27,7 +27,7 @@ def generate_gt_neighbor(neighbor_dict, node_embeddings, neighbor_num_list, in_d
 
 # Main Autoencoder structure here
 class GNNStructEncoder(nn.Module):
-    def __init__(self, in_dim, hidden_dim, layer_num, sample_size, device, neighbor_num_list, GNN_name="GIN", norm_mode="PN-SCS", norm_scale=20, lambda_loss=0.0001):
+    def __init__(self, in_dim, hidden_dim, layer_num, sample_size, device, neighbor_num_list, GNN_name="GIN", norm_mode="PN-SCS", norm_scale=20, lambda_loss1=0.0001, lambda_loss2=1):
         '''
          Main Autoencoder structure
          INPUT:
@@ -44,10 +44,11 @@ class GNNStructEncoder(nn.Module):
         super(GNNStructEncoder, self).__init__()
         self.norm = PairNorm(norm_mode, norm_scale)
         self.out_dim = hidden_dim
-        self.lambda_loss = lambda_loss
+        self.lambda_loss1 = lambda_loss1
+        self.lambda_loss2 = lambda_loss2
         # GNN Encoder
         if GNN_name == "GIN":
-            self.linear1 = MLP(layer_num, in_dim, hidden_dim, hidden_dim)
+            self.linear1 = MLP(layer_num, hidden_dim, hidden_dim, hidden_dim)
             self.graphconv1 = GINConv(apply_func=self.linear1, aggregator_type='sum')
             self.linear2 = MLP(layer_num, hidden_dim, hidden_dim, hidden_dim)
             self.graphconv2 = GINConv(apply_func=self.linear2, aggregator_type='sum')
@@ -56,12 +57,12 @@ class GNNStructEncoder(nn.Module):
             self.linear4 = MLP(layer_num, hidden_dim, hidden_dim, hidden_dim)
             self.graphconv4 = GINConv(apply_func=self.linear4, aggregator_type='sum')
         elif GNN_name == "GCN":
-            self.graphconv1 = GraphConv(in_dim, hidden_dim)
+            self.graphconv1 = GraphConv(hidden_dim, hidden_dim)
             self.graphconv2 = GraphConv(hidden_dim, hidden_dim)
             self.graphconv3 = GraphConv(hidden_dim, hidden_dim)
             self.graphconv4 = GraphConv(hidden_dim, hidden_dim)
         else:
-            self.graphconv1 = SAGEConv(in_dim, hidden_dim, aggregator_type='mean')
+            self.graphconv1 = SAGEConv(hidden_dim, hidden_dim, aggregator_type='mean')
             self.graphconv2 = SAGEConv(hidden_dim, hidden_dim, aggregator_type='mean')
             self.graphconv3 = SAGEConv(hidden_dim, hidden_dim, aggregator_type='mean')
             self.graphconv4 = SAGEConv(hidden_dim, hidden_dim, aggregator_type='mean')
@@ -98,23 +99,27 @@ class GNNStructEncoder(nn.Module):
         self.layer4_generator = MLP_generator(hidden_dim, hidden_dim, sample_size)
         # Decoders
         self.degree_decoder = FNN(hidden_dim, hidden_dim, 1, 4)
+        self.feature_decoder = FNN(hidden_dim, hidden_dim, hidden_dim, 3)
         # self.degree_loss_func = FocalLoss(int(max_degree_num) + 1)
         self.degree_loss_func = nn.MSELoss()
+        self.feature_loss_func = nn.MSELoss()
         self.pool = mp.Pool(4)
         self.in_dim = in_dim
         self.sample_size = sample_size
+        self.init_projection = FNN(in_dim, hidden_dim, hidden_dim, 1)
 
     def forward_encoder(self, g, h):
         # K-layer Encoder
         # Apply graph convolution and activation, pair-norm to avoid trivial solution
-        l1 = self.graphconv1(g, h)
+        h0 = self.init_projection(h)
+        l1 = self.graphconv1(g, h0)
         l1_norm = torch.relu(self.norm(l1))
         l2 = self.graphconv2(g, l1_norm)
         l2_norm = torch.relu(self.norm(l2))
         l3 = self.graphconv3(g, l2)
         l3_norm = torch.relu(l3)
         l4 = self.graphconv4(g, l3_norm) # 5 layers
-        return l4, l2_norm, l3_norm, l1_norm
+        return l4, l2_norm, l3_norm, l1_norm, h0
 
     # Sample neighbors from neighbor set, if the length of neighbor set less than sample size, then do the padding.
     def sample_neighbors(self, indexes, neighbor_dict, gt_embeddings):
@@ -178,7 +183,7 @@ class GNNStructEncoder(nn.Module):
             local_index_loss += hun_loss
             return local_index_loss, new_index
 
-    def neighbor_decoder(self, gij, ground_truth_degree_matrix, g, h, neighbor_dict, device, l3, l2, l1):
+    def neighbor_decoder(self, gij, ground_truth_degree_matrix, g, h0, neighbor_dict, device, l3, l2, l1, h):
         '''
          Neighborhood information decoder
          INPUT:
@@ -207,6 +212,7 @@ class GNNStructEncoder(nn.Module):
         for _ in range(3):
             local_index_loss_sum = 0
             indexes = []
+            feature_losses = self.feature_loss_func(h0, self.feature_decoder(gij))
             for i1, embedding in enumerate(gij):
                 indexes.append(i1)
             # Reconstruct neighbors from layer 4 -> 3 -> 2 -> 1
@@ -219,7 +225,7 @@ class GNNStructEncoder(nn.Module):
             loss_list.append(local_index_loss_sum)
         loss_list = torch.stack(loss_list)
         h_loss += torch.mean(loss_list)
-        loss = self.lambda_loss * h_loss + degree_loss
+        loss = self.lambda_loss1 * h_loss + degree_loss + self.lambda_loss2 * feature_losses
         return loss, self.forward_encoder(g, h)[0]
 
     def degree_decoding(self, node_embeddings):
@@ -228,7 +234,7 @@ class GNNStructEncoder(nn.Module):
 
     def forward(self, g, h, ground_truth_degree_matrix, neighbor_dict, device):
         # Generate 1, .., k-1 layer GNN encodings
-        gij, l2, l3, l1 = self.forward_encoder(g, h)
+        gij, l2, l3, l1, h0 = self.forward_encoder(g, h)
         # Decoding and generating the latent representation by decoder, loss = degree_loss +
-        loss, hij = self.neighbor_decoder(gij, ground_truth_degree_matrix, g, h, neighbor_dict, device, l3, l2, l1)
+        loss, hij = self.neighbor_decoder(gij, ground_truth_degree_matrix, g, h0, neighbor_dict, device, l3, l2, l1, h)
         return loss, hij
