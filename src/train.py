@@ -149,7 +149,7 @@ def train_real_datasets(dataset_str, epoch_num = 10, lr = 5e-6, encoder = "GCN",
     else:
         hidden_dim = hidden_dim
     acc = []
-    for index in range(10):
+    for index in range(5):
         node_embeddings, _ = train(g, node_features, lr=lr, epoch=epoch_num, device=device, encoder=encoder, lambda_loss1=lambda_loss1, lambda_loss2=lambda_loss2, hidden_dim=hidden_dim, sample_size=sample_size)
         input_dims = node_embeddings.shape
         print(input_dims[1])
@@ -240,7 +240,7 @@ def train_new_datasets(dataset_str, epoch_num = 10, lr = 5e-6, encoder = "GCN", 
     else:
         hidden_dim = hidden_dim
     acc = []
-    for index in range(10):
+    for index in range(5):
         node_embeddings, loss = train(g, node_features, lr=lr, epoch=epoch_num, device=device, encoder=encoder, lambda_loss1=lambda_loss1, lambda_loss2=lambda_loss2, sample_size=sample_size, hidden_dim=hidden_dim)
         input_dims = node_embeddings.shape
         print(input_dims[1])
@@ -254,7 +254,7 @@ def train_new_datasets(dataset_str, epoch_num = 10, lr = 5e-6, encoder = "GCN", 
         train_loader, val_loader, test_loader = split.get_split(batch_size=64, num_workers=0)
         # train_loader = DataLoader(dataset=dataset, batch_size=32, shuffle=True)
         best = -float('inf')
-        for epoch in range(100):
+        for epoch in range(50):
             for i, data in enumerate(train_loader, 0):
                 # data = data.to(device)
                 inputs, labels = data
@@ -309,17 +309,17 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='parameters')
     parser.add_argument('--dataset', type=str, default="texas")
-    parser.add_argument('--lr', type=float, default=5e-6)
+    parser.add_argument('--lr', type=float, default=5e-5)
     parser.add_argument('--epoch_num', type=int, default=100)
-    parser.add_argument('--lambda_loss1', type=float, default=1e-4)
-    parser.add_argument('--lambda_loss2', type=float, default=1)
+    parser.add_argument('--lambda_loss1', type=float, default=1e-2)
+    parser.add_argument('--lambda_loss2', type=float, default=1e-2)
     parser.add_argument('--sample_size', type=int, default=5)
-    parser.add_argument('--dimension', type=int, default=1700)
+    parser.add_argument('--dimension', type=int, default=1500)
     parser.add_argument('--identify', type=str, default="sample")
     parser.add_argument('--dataset_type', type=str, default="real")
 
     args = parser.parse_args()
-    # train_synthetic_graphs()
+    # train_synthetic_graphs()™
     if args.dataset_type == "real":
         dataset_str = args.dataset
         if dataset_str == "cora" or dataset_str == "citeseer" or dataset_str == "pubmed":

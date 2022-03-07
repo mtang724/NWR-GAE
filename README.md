@@ -32,15 +32,17 @@ The repository is organised as follows:
 ### Support Parameters
 **--dataset**, supported datasets above, default: texas
 
-**--lr**, learning rate for neighborhood reconstructor, default: 5e-6
+**--lr**, learning rate for neighborhood reconstructor, default: 5e-5
 
 **--epoch_num**, training epoch size, default: 100
 
-**--lambda_loss**, balance weights for degree and neighborhood information decoder, default: 1e-4
+**--lambda_loss1**, balance weights for degree and neighborhood information decoder, default: 1e-2
+
+**--lambda_loss2**, balance weights for feature decoder, default: 1e-2
 
 **--sample_size**, size of neighborhood down sampling, default: 5
 
-**--dimension**, dimension of final output embeddings, default: input feature dimension for structure datasets
+**--dimension**, dimension of final output embeddings, default: 1500
 
 ### Example
 

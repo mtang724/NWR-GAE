@@ -206,13 +206,16 @@ class GNNStructEncoder(nn.Module):
         degree_loss = self.degree_loss_func(degree_logits, ground_truth_degree_matrix.float())
         _, degree_masks = torch.max(degree_logits.data, dim=1)
         h_loss = 0
+        feature_loss = 0
         # layer 1
         loss_list = []
+        feature_loss_list = []
         # Sample multiple times to remove noise
         for _ in range(3):
             local_index_loss_sum = 0
             indexes = []
             feature_losses = self.feature_loss_func(h0, self.feature_decoder(gij))
+            feature_loss_list.append(feature_losses)
             for i1, embedding in enumerate(gij):
                 indexes.append(i1)
             # Reconstruct neighbors from layer 4 -> 3 -> 2 -> 1
@@ -225,7 +228,9 @@ class GNNStructEncoder(nn.Module):
             loss_list.append(local_index_loss_sum)
         loss_list = torch.stack(loss_list)
         h_loss += torch.mean(loss_list)
-        loss = self.lambda_loss1 * h_loss + degree_loss + self.lambda_loss2 * feature_losses
+        feature_loss_list = torch.stack(feature_loss_list)
+        feature_loss += torch.mean(feature_loss_list)
+        loss = self.lambda_loss1 * h_loss + degree_loss + self.lambda_loss2 * feature_loss
         return loss, self.forward_encoder(g, h)[0]
 
     def degree_decoding(self, node_embeddings):
