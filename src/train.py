@@ -17,10 +17,6 @@ import argparse
 import random
 from utils import NodeClassificationDataset, cluster_graph, unsupervised_evaluate, draw_pca, graph_generator, average
 
-torch.manual_seed(42)
-random.seed(42)
-np.random.seed(42)
-
 
 # Training
 def train(g, feats, lr, epoch, device, encoder, lambda_loss1, lambda_loss2, hidden_dim, sample_size=10):
@@ -312,9 +308,9 @@ if __name__ == '__main__':
     parser.add_argument('--lr', type=float, default=5e-6)
     parser.add_argument('--epoch_num', type=int, default=30)
     parser.add_argument('--lambda_loss1', type=float, default=1e-2)
-    parser.add_argument('--lambda_loss2', type=float, default=0.1)
-    parser.add_argument('--sample_size', type=int, default=15)
-    parser.add_argument('--dimension', type=int, default=None)
+    parser.add_argument('--lambda_loss2', type=float, default=1)
+    parser.add_argument('--sample_size', type=int, default=5)
+    parser.add_argument('--dimension', type=int, default=512)
     parser.add_argument('--identify', type=str, default="sample")
     parser.add_argument('--dataset_type', type=str, default="real")
 
