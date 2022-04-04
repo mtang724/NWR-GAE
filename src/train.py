@@ -161,7 +161,7 @@ def train_real_datasets(dataset_str, epoch_num = 10, lr = 5e-6, encoder = "GCN",
         if gcn_setting:
             inputs = node_embeddings
             inputs = inputs.to(device)
-            for epoch in range(10):
+            for epoch in range(50):
                 FNN.train()
                 # forward propagation by using all nodes
                 logits = FNN(inputs)
@@ -182,7 +182,7 @@ def train_real_datasets(dataset_str, epoch_num = 10, lr = 5e-6, encoder = "GCN",
             split = utils.DataSplit(dataset, shuffle=True)
             train_loader, val_loader, test_loader = split.get_split(batch_size=64, num_workers=0)
             best = float('inf')
-            for epoch in range(50):
+            for epoch in range(10):
                 for i, data in enumerate(train_loader, 0):
                     # data = data.to(device)
                     inputs, labels = data
@@ -309,12 +309,12 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='parameters')
     parser.add_argument('--dataset', type=str, default="texas")
-    parser.add_argument('--lr', type=float, default=5e-5)
-    parser.add_argument('--epoch_num', type=int, default=100)
+    parser.add_argument('--lr', type=float, default=5e-6)
+    parser.add_argument('--epoch_num', type=int, default=30)
     parser.add_argument('--lambda_loss1', type=float, default=1e-2)
-    parser.add_argument('--lambda_loss2', type=float, default=1e-2)
-    parser.add_argument('--sample_size', type=int, default=5)
-    parser.add_argument('--dimension', type=int, default=1500)
+    parser.add_argument('--lambda_loss2', type=float, default=0.1)
+    parser.add_argument('--sample_size', type=int, default=15)
+    parser.add_argument('--dimension', type=int, default=None)
     parser.add_argument('--identify', type=str, default="sample")
     parser.add_argument('--dataset_type', type=str, default="real")
 
