@@ -175,13 +175,14 @@ class GNNStructEncoder(nn.Module):
             generated_neighbors = nhij
             # Caculate 2-Wasserstein distance
             sum_neighbor_norm = 0
+            # For appendix D approximate experiment
             for indexi, generated_neighbor in enumerate(generated_neighbors):
                 sum_neighbor_norm += torch.norm(generated_neighbor) / math.sqrt(self.out_dim)
             generated_neighbors = torch.unsqueeze(generated_neighbors, dim=0).to(device)
             target_neighbors = torch.unsqueeze(torch.FloatTensor(neighbor_embeddings1), dim=0).to(device)
             hun_loss, new_index = hungarian_loss(generated_neighbors, target_neighbors, mask_len1, self.pool)
             local_index_loss += hun_loss
-            return local_index_loss, new_index
+        return local_index_loss, new_index
 
     def neighbor_decoder(self, gij, ground_truth_degree_matrix, g, h0, neighbor_dict, device, l3, l2, l1, h):
         '''
