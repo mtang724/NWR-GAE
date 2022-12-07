@@ -305,8 +305,8 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='parameters')
     parser.add_argument('--dataset', type=str, default="texas")
-    parser.add_argument('--lr', type=float, default=5e-6)
-    parser.add_argument('--epoch_num', type=int, default=30)
+    parser.add_argument('--lr', type=float, default=5e-7)
+    parser.add_argument('--epoch_num', type=int, default=50)
     parser.add_argument('--lambda_loss1', type=float, default=1e-2)
     parser.add_argument('--lambda_loss2', type=float, default=1)
     parser.add_argument('--sample_size', type=int, default=5)
