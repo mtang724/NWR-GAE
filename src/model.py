@@ -117,8 +117,8 @@ class GNNStructEncoder(nn.Module):
         l2 = self.graphconv2(g, l1_norm)
         l2_norm = torch.relu(self.norm(l2))
         l3 = self.graphconv3(g, l2)
-        l3_norm = torch.relu(l3)
-        l4 = self.graphconv4(g, l1_norm) # 5 layers
+        l3_norm = torch.relu(self.norm(l3))
+        l4 = self.graphconv4(g, l3_norm) # 5 layers
         return l4, l3_norm, l2_norm, l1_norm, h0
 
     # Sample neighbors from neighbor set, if the length of neighbor set less than sample size, then do the padding.
@@ -240,7 +240,7 @@ class GNNStructEncoder(nn.Module):
 
     def forward(self, g, h, ground_truth_degree_matrix, neighbor_dict, device):
         # Generate 1, .., k-1 layer GNN encodings
-        gij, l2, l3, l1, h0 = self.forward_encoder(g, h)
+        gij, l3, l2, l1, h0 = self.forward_encoder(g, h)
         # Decoding and generating the latent representation by decoder, loss = degree_loss +
         loss, hij = self.neighbor_decoder(gij, ground_truth_degree_matrix, g, h0, neighbor_dict, device, l3, l2, l1, h)
         return loss, hij
